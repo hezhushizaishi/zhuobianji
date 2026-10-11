@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <AssemblyName>WeNote.Rewrite</AssemblyName>
-    <Version>0.8.8</Version>
+    <Version>0.8.9</Version>
     <Product>桌边记</Product>
     <AssemblyTitle>桌边记</AssemblyTitle>
     <Company>桌边记</Company>
@@ -16,6 +16,10 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets\zhuobianji.ico" LogicalName="WeNote.App.Icon" />
+    <EmbeddedResource Include="..\..\LICENSE" LogicalName="WeNote.App.Notices.LICENSE" />
+    <EmbeddedResource Include="..\..\THIRD-PARTY-NOTICES.txt" LogicalName="WeNote.App.Notices.THIRD-PARTY-NOTICES.txt" />
+    <EmbeddedResource Include="..\..\WPF-UI-THIRD-PARTY-NOTICES.txt" LogicalName="WeNote.App.Notices.WPF-UI-THIRD-PARTY-NOTICES.txt" />
+    <EmbeddedResource Include="..\..\DOTNET-THIRD-PARTY-NOTICES.txt" LogicalName="WeNote.App.Notices.DOTNET-THIRD-PARTY-NOTICES.txt" />
     <ProjectReference Include="..\WeNote.Core\WeNote.Core.csproj" />
     <PackageReference Include="Markdig" Version="1.4.0" />
     <PackageReference Include="AngleSharp" Version="1.8.3" />
