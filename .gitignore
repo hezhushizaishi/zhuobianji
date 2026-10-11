@@ -1,0 +1,11 @@
+.local/
+**/bin/
+**/obj/
+
+微便签/
+桌边记/
+
+archive/
+**/Data/
+.vs/
+*.user

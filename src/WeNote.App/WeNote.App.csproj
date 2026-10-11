@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <AssemblyName>WeNote.Rewrite</AssemblyName>
+    <Version>0.8.8</Version>
+    <Product>桌边记</Product>
+    <AssemblyTitle>桌边记</AssemblyTitle>
+    <Company>桌边记</Company>
+    <DebugType>embedded</DebugType>
+    <ApplicationIcon>Assets\zhuobianji.ico</ApplicationIcon>
+    <Description>桌边记</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\zhuobianji.ico" LogicalName="WeNote.App.Icon" />
+    <ProjectReference Include="..\WeNote.Core\WeNote.Core.csproj" />
+    <PackageReference Include="Markdig" Version="1.4.0" />
+    <PackageReference Include="AngleSharp" Version="1.8.3" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+    <InternalsVisibleTo Include="WeNote.Tests" />
+    <Content Include="..\..\THIRD-PARTY-NOTICES.txt" Link="docs\THIRD-PARTY-NOTICES.txt" ExcludeFromSingleFile="true" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\WPF-UI-THIRD-PARTY-NOTICES.txt" Link="docs\WPF-UI-THIRD-PARTY-NOTICES.txt" ExcludeFromSingleFile="true" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\DOTNET-THIRD-PARTY-NOTICES.txt" Link="docs\DOTNET-THIRD-PARTY-NOTICES.txt" ExcludeFromSingleFile="true" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
