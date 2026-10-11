@@ -8,9 +8,7 @@
 
 桌边记是一款 Windows 桌面便签，支持富文本、Markdown 和纯文本。
 
-<!-- 发布程序后补入下载入口。 -->
-
-[使用说明](docs/使用说明.md)
+[下载 Windows 版](https://github.com/hezhushizaishi/zhuobianji/releases/latest/download/Zhuobianji.exe) · [版本说明与附件](https://github.com/hezhushizaishi/zhuobianji/releases/latest) · [使用说明](docs/使用说明.md)
 
 ## 便签多了，就收起来
 
@@ -38,7 +36,7 @@
 
 ## 开始使用
 
-下载 Windows 版，放进一个普通文件夹，双击程序就能开始写。
+下载 Windows x64 版，放进一个普通文件夹，双击 `Zhuobianji.exe` 就能开始写。内含运行库，无需另行安装。
 
 右上角 **×** 会保存并关闭，之后可以从托盘或收纳标签找回。**垃圾桶**会先询问，确认后永久删除。
 
