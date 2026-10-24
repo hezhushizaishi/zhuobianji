@@ -4,7 +4,7 @@ $checkPath = Join-Path $projectRoot ('.local\checks\install-current-' + (Get-Dat
 $source = Join-Path $checkPath '构建 文件'
 $target = Join-Path $checkPath '正式 桌边记'
 $backupRoot = $target + '.rollback'
-$registryPath = 'Software\WeNote.Tests\' + [guid]::NewGuid().ToString('N')
+$registryPath = 'Software\Zhuobianji.Checks\' + [guid]::NewGuid().ToString('N')
 $installer = Join-Path $PSScriptRoot 'install-app.ps1'
 New-Item -ItemType Directory -Path (Join-Path $source 'docs') -Force | Out-Null
 [IO.File]::WriteAllText((Join-Path $source '桌边记.exe'), 'fixture-program')

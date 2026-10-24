@@ -1,55 +1,33 @@
 ﻿param([string[]] $Group = @())
-
+# 按功能组运行检查。组名由检查程序自己列出（--list）；有 "<组>-reload" 阶段的组会再开一个进程验证重开结果。
 $ErrorActionPreference = 'Stop'
-$groups = [ordered]@{
-    storage = @('storage')
-    basic = @('seed', 'reload')
-    desktop = @('desktop-seed', 'desktop-reload')
-    editing = @('modern-seed', 'modern-reload')
-    settings = @('settings')
-    startup = @('closure')
-    window = @('iteration')
-    lifecycle = @('lifecycle')
-    close = @('close-seed', 'close-reload')
-    deletion = @('delete-confirm')
-    collection = @('collection-seed', 'collection-reload')
-    sorting = @('order-seed', 'order-reload')
-    rail = @('rail-seed', 'rail-reload')
-    paste = @('paste-links')
-    layout = @('paste-layout')
-    links = @('inline-links')
-    formatting = @('polish', 'polish-reload')
-    preview = @('preview')
-}
+$projectRoot = Split-Path -Parent $PSScriptRoot
+$projectPath = Join-Path $projectRoot 'tests\Zhuobianji.Checks\Zhuobianji.Checks.csproj'
+$checksDll = Join-Path $projectRoot 'tests\Zhuobianji.Checks\bin\Release\net10.0-windows\Zhuobianji.Checks.dll'
+
+dotnet build $projectPath -c Release -p:NuGetAudit=false --nologo --verbosity minimal
+if ($LASTEXITCODE -ne 0) { throw '检查程序构建失败。' }
+$phases = @(dotnet $checksDll --list)
+$groups = @($phases | Where-Object { -not $_.EndsWith('-reload') })
 if ($Group.Count -eq 0) {
-    Write-Output ('可用功能组：' + ($groups.Keys -join ', '))
-    Write-Output '示例：.\scripts\test-app.ps1 -Group storage,close'
-    Write-Output '安装检查：.\scripts\test-install-app.ps1'
+    Write-Output ('可用功能组：' + ($groups -join ', '))
+    Write-Output '示例：.\scripts\test-app.ps1 -Group storage,close；全部运行：-Group all'
     return
 }
-$selected = @($Group | Select-Object -Unique)
+$selected = @(if ($Group -contains 'all') { $groups } else { $Group | Select-Object -Unique })
 foreach ($name in $selected) {
-    if (-not $groups.Contains($name)) { throw ('未知功能组：' + $name) }
+    if ($groups -notcontains $name) { throw ('未知功能组：' + $name) }
 }
 
-$projectRoot = Split-Path -Parent $PSScriptRoot
-$projectPath = Join-Path $projectRoot 'tests\WeNote.Tests\WeNote.Tests.csproj'
-$dotnetEntry = Join-Path $PSScriptRoot 'dotnet.cmd'
 $checkPath = Join-Path $projectRoot ('.local\checks\app-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
 New-Item -ItemType Directory -Path $checkPath | Out-Null
 Write-Output ('检查目录：' + $checkPath)
-& $dotnetEntry build $projectPath -c Release -p:NuGetAudit=false --nologo --verbosity minimal |
-    Tee-Object -FilePath (Join-Path $checkPath 'build.log')
-if ($LASTEXITCODE -ne 0) { throw '检查程序构建失败。' }
-
-$testDll = Join-Path $projectRoot 'tests\WeNote.Tests\bin\Release\net10.0-windows\WeNote.Tests.dll'
 foreach ($name in $selected) {
     $groupPath = Join-Path $checkPath $name
     New-Item -ItemType Directory -Path $groupPath | Out-Null
-    foreach ($phase in $groups[$name]) {
-        & $dotnetEntry $testDll $phase $groupPath |
-            Tee-Object -FilePath (Join-Path $groupPath ($phase + '.log'))
-        if ($LASTEXITCODE -ne 0) { throw ('检查未通过：' + $name + ' / ' + $phase) }
+    foreach ($phase in @($name, ($name + '-reload')) | Where-Object { $phases -contains $_ }) {
+        dotnet $checksDll $phase $groupPath | Tee-Object -FilePath (Join-Path $groupPath ($phase + '.log'))
+        if ($LASTEXITCODE -ne 0) { throw ('检查未通过：' + $phase) }
     }
 }
 Write-Output ('已通过：' + ($selected -join ', '))

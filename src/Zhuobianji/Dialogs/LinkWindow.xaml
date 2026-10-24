@@ -1,0 +1,32 @@
+<ui:FluentWindow x:Class="Zhuobianji.LinkWindow" x:ClassModifier="internal"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+ Title="链接" Width="460" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+ WindowStartupLocation="CenterOwner" ExtendsContentIntoTitleBar="True" WindowBackdropType="None"
+ FontFamily="Microsoft YaHei UI">
+ <ui:FluentWindow.Resources>
+  <ResourceDictionary><ResourceDictionary.MergedDictionaries>
+   <ui:ThemesDictionary Theme="Light" /><ui:ControlsDictionary />
+  </ResourceDictionary.MergedDictionaries></ResourceDictionary>
+ </ui:FluentWindow.Resources>
+ <Grid Background="{DynamicResource ApplicationBackgroundBrush}">
+  <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+  <ui:TitleBar Title="链接" ShowMaximize="False" ShowMinimize="False" />
+  <StackPanel Grid.Row="1" Margin="24,12,24,24">
+   <ui:TextBlock Text="名称" Margin="0,0,0,8" />
+   <TextBox x:Name="NameBox" MinHeight="34" VerticalContentAlignment="Center" Margin="0,0,0,16" ToolTip="留空时使用文件名、文件夹名或域名。" />
+   <ui:TextBlock Text="地址" Margin="0,0,0,8" />
+   <TextBox x:Name="AddressBox" MinHeight="34" VerticalContentAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,10" />
+   <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+    <ui:Button Content="选文件" Appearance="Secondary" Click="OnChooseFile" Margin="0,0,8,0" />
+    <ui:Button Content="选文件夹" Appearance="Secondary" Click="OnChooseFolder" />
+   </StackPanel>
+   <ui:TextBlock x:Name="Status" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,10" />
+   <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+    <ui:Button Content="取消" Appearance="Secondary" Click="OnCancel" Margin="0,0,8,0" />
+    <ui:Button x:Name="SaveButton" Content="确定" Appearance="Secondary" IsDefault="True" Click="OnSave" />
+   </StackPanel>
+  </StackPanel>
+ </Grid>
+</ui:FluentWindow>
