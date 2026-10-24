@@ -29,10 +29,10 @@ internal static class FormattedDocuments
         var document = new FlowDocument
         {
             PagePadding = new Thickness(0), FontFamily = new FontFamily(appearance.FontFamily),
-            FontSize = appearance.FontSize, Foreground = theme.Text, LineHeight = appearance.FontSize * 1.45
+            FontSize = appearance.FontSize, Foreground = theme.Text, LineHeight = appearance.FontSize * NoteTheme.LineHeightFactor
         };
         var paragraphStyle = new Style(typeof(Paragraph));
-        paragraphStyle.Setters.Add(new Setter(System.Windows.Documents.Block.MarginProperty, new Thickness(0, 0, 0, 3)));
+        paragraphStyle.Setters.Add(new Setter(System.Windows.Documents.Block.MarginProperty, Below(NoteTheme.ParagraphSpacing)));
         document.Resources.Add(typeof(Paragraph), paragraphStyle);
         return document;
     }
@@ -61,7 +61,7 @@ internal static class FormattedDocuments
     {
         document.FontFamily = new FontFamily(appearance.FontFamily);
         document.FontSize = appearance.FontSize;
-        document.LineHeight = appearance.FontSize * 1.45;
+        document.LineHeight = appearance.FontSize * NoteTheme.LineHeightFactor;
         foreach (var element in DocumentText.Elements(document).ToArray())
         {
             var code = element.FontFamily.Source.Contains("Consolas", StringComparison.OrdinalIgnoreCase) ||
@@ -75,9 +75,9 @@ internal static class FormattedDocuments
                 if (!heading) element.ClearValue(TextElement.FontSizeProperty);
             }
             if (element is System.Windows.Documents.Block block) block.ClearValue(System.Windows.Documents.Block.LineHeightProperty);
-            if (element is Paragraph paragraph && !code) paragraph.Margin = new Thickness(0, 0, 0, 3);
+            if (element is Paragraph paragraph && !code) paragraph.Margin = Below(NoteTheme.ParagraphSpacing);
             if (element is System.Windows.Documents.List list)
-            { list.Margin = new Thickness(0, 0, 0, 6); list.Padding = new Thickness(20, 0, 0, 0); }
+            { list.Margin = Below(NoteTheme.ListSpacing); list.Padding = new Thickness(NoteTheme.ListIndent, 0, 0, 0); }
         }
     }
     internal static bool LooksLikeMarkdown(string text) => Regex.IsMatch(PastedLinks.NormalizeCopiedSyntax(text),
@@ -130,14 +130,14 @@ internal static class FormattedDocuments
                         {
                             FontFamily = new FontFamily("Consolas"), FontSize = appearance.FontSize * 0.9,
                             Background = NoteTheme.For(appearance).Code, Padding = new Thickness(10),
-                            Margin = new Thickness(0, 0, 0, 12)
+                            Margin = Below(NoteTheme.BlockSpacing)
                         });
                         break;
                     case "ul": case "ol":
                         var list = new System.Windows.Documents.List
                         {
                             MarkerStyle = element.LocalName == "ol" ? TextMarkerStyle.Decimal : TextMarkerStyle.Disc,
-                            Padding = new Thickness(20, 0, 0, 0), Margin = new Thickness(0, 0, 0, 6)
+                            Padding = new Thickness(NoteTheme.ListIndent, 0, 0, 0), Margin = Below(NoteTheme.ListSpacing)
                         };
                         if (int.TryParse(element.GetAttribute("start"), out var index)) list.StartIndex = Math.Max(1, index);
                         foreach (var item in element.Children.Where(e => e.LocalName == "li"))
@@ -153,14 +153,14 @@ internal static class FormattedDocuments
                         var quote = new Section
                         {
                             BorderBrush = NoteTheme.For(appearance).Border, BorderThickness = new Thickness(3, 0, 0, 0),
-                            Padding = new Thickness(12, 0, 0, 0), Margin = new Thickness(0, 0, 0, 12),
+                            Padding = new Thickness(12, 0, 0, 0), Margin = Below(NoteTheme.BlockSpacing),
                             Foreground = NoteTheme.For(appearance).Muted
                         };
                         AddBlocks(element.ChildNodes, quote.Blocks, appearance);
                         blocks.Add(quote);
                         break;
                     case "table":
-                        var table = new System.Windows.Documents.Table { CellSpacing = 0, Margin = new Thickness(0, 0, 0, 12) };
+                        var table = new System.Windows.Documents.Table { CellSpacing = 0, Margin = Below(NoteTheme.BlockSpacing) };
                         var group = new TableRowGroup();
                         table.RowGroups.Add(group);
                         foreach (var row in element.QuerySelectorAll("tr"))
@@ -182,7 +182,7 @@ internal static class FormattedDocuments
                         blocks.Add(table);
                         break;
                     case "hr":
-                        blocks.Add(new Paragraph { BorderBrush = NoteTheme.For(appearance).Border, BorderThickness = new Thickness(0, 1, 0, 0), Margin = new Thickness(0, 8, 0, 12) });
+                        blocks.Add(new Paragraph { BorderBrush = NoteTheme.For(appearance).Border, BorderThickness = new Thickness(0, 1, 0, 0), Margin = new Thickness(0, 8, 0, NoteTheme.BlockSpacing) });
                         break;
                     default:
                         AddBlocks(element.ChildNodes, blocks, appearance);
@@ -199,7 +199,8 @@ internal static class FormattedDocuments
         Flush();
     }
 
-    private static Paragraph Paragraph() => new() { Margin = new Thickness(0, 0, 0, 3) };
+    private static Paragraph Paragraph() => new() { Margin = Below(NoteTheme.ParagraphSpacing) };
+    private static Thickness Below(double spacing) => new(0, 0, 0, spacing);
 
     private static bool IsBlock(string tag) => tag is "p" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6"
         or "pre" or "ul" or "ol" or "blockquote" or "table" or "hr" or "div" or "section" or "article";
@@ -231,7 +232,7 @@ internal static class FormattedDocuments
             "a" => CreateLink(element.GetAttribute("href"), appearance), _ => new Span()
         };
         if (element.LocalName is "s" or "del" or "strike") span.TextDecorations = TextDecorations.Strikethrough;
-        if (element.LocalName == "mark") span.Background = NoteTheme.B("#F1DC83");
+        if (element.LocalName == "mark") span.Background = NoteTheme.Highlight;
         if (element.LocalName == "code") { span.FontFamily = new FontFamily("Consolas"); span.Background = NoteTheme.For(appearance).Code; }
         ApplyInlineStyle(element, span);
         AddInlines(element.ChildNodes, span.Inlines, appearance);

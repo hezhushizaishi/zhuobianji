@@ -13,7 +13,7 @@ internal sealed partial class NoteController
     internal bool SaveDefaults(NoteAppearance appearance)
     {
         if (TrySavePreferences(Preferences with { Appearance = appearance }, "默认外观未保存", out var error)) return true;
-        MessageBox.Show(error, "桌边记 · 设置");
+        Dialogs.Show(error, "设置");
         return false;
     }
 
@@ -45,7 +45,7 @@ internal sealed partial class NoteController
     {
         try { Process.Start(new ProcessStartInfo(DataDirectory) { UseShellExecute = true }); }
         catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException)
-        { MessageBox.Show("无法打开数据文件夹：" + ex.Message, "桌边记 · 数据位置"); }
+        { Dialogs.Show("无法打开数据文件夹：" + ex.Message, "数据位置"); }
     }
 
     internal SettingsWindow ShowSettings(NoteWindow? note = null)

@@ -153,7 +153,7 @@ internal partial class NoteEditor
         copy.Click += (_, _) =>
         {
             try { if (link.NavigateUri is Uri target) Clipboard.SetText(NoteLinks.Address(target)); }
-            catch (System.Runtime.InteropServices.COMException) { MessageBox.Show("剪贴板正忙，请稍后再试。", "桌边记"); }
+            catch (System.Runtime.InteropServices.COMException) { Dialogs.Show("剪贴板正忙，请稍后再试。"); }
         };
         menu.Items.Add(copy);
         link.ContextMenu = menu;

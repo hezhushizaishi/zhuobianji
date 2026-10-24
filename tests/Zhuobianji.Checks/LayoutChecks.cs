@@ -43,10 +43,10 @@ internal static partial class Program
         var document = note.Editor.Rich.Document;
         Check(note.Editor.TextContent == original.Text && note.Editor.Format == original.Format,
             "旧行距富文本记录恢复后内容和格式不变");
-        Check(Math.Abs(document.LineHeight - original.Appearance.FontSize * 1.45) < 0.01 &&
+        Check(Math.Abs(document.LineHeight - original.Appearance.FontSize * NoteTheme.LineHeightFactor) < 0.01 &&
             Elements(document).OfType<Block>().All(block => block.ReadLocalValue(Block.LineHeightProperty) == DependencyProperty.UnsetValue),
             "原保存内容的 1.7 倍行高已由当前行高统一接管");
-        Check(Elements(document).OfType<System.Windows.Documents.List>().All(list => list.Margin.Bottom == 6) &&
+        Check(Elements(document).OfType<System.Windows.Documents.List>().All(list => list.Margin.Bottom == NoteTheme.ListSpacing) &&
             Elements(document).OfType<Hyperlink>().Any(link => link.NavigateUri!.IsFile) && HasBold(document),
             "列表间距收紧，粗体和本地链接保留");
         await Task.Delay(80);

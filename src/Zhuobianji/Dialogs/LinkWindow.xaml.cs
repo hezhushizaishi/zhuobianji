@@ -1,9 +1,7 @@
 using System;
 using System.Windows;
 using Microsoft.Win32;
-using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
-using Wpf.Ui.Markup;
 using Zhuobianji.Core;
 
 namespace Zhuobianji;
@@ -15,7 +13,7 @@ internal partial class LinkWindow : FluentWindow
     internal LinkWindow(NoteAppearance appearance, string address = "", string name = "")
     {
         InitializeComponent();
-        Resources.MergedDictionaries[0] = new ThemesDictionary { Theme = appearance.Dark ? ApplicationTheme.Dark : ApplicationTheme.Light };
+        NoteTheme.ApplyFluent(Resources, appearance.Dark);
         AddressBox.Text = address;
         NameBox.Text = name;
         Loaded += (_, _) => { if (address.Length == 0) AddressBox.Focus(); else NameBox.Focus(); };

@@ -73,7 +73,7 @@ internal static partial class Program
         richTab.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         await Task.Delay(50);
         Check(rich.IsVisible && rich.Editor.IsVisible && rich.CloseButton.IsVisible && Equals(rich.CloseButton.ToolTip, "收起便签（Ctrl+W）") &&
-            main.Editor.TextContent == mainText && main.Editor.IsVisible && ReferenceEquals(rich.EditorHost.Content, rich.Editor) &&
+            main.Editor.TextContent == mainText && main.Editor.IsVisible &&
             rich.Left >= main.Left + main.Width,
             "标签单击在主便签旁展开独立编辑窗口，主正文保持可见");
         rich.Editor.InsertPlain("\n展开时补充的内容");

@@ -1,7 +1,6 @@
 using System;
 using System.Windows;
 using System.Windows.Interop;
-using System.Windows.Media;
 using System.Windows.Threading;
 using Zhuobianji.Core;
 
@@ -61,7 +60,7 @@ internal partial class NoteWindow
         if (documentChanged && SaveError is null)
         {
             SaveStatus.Content = "保存中";
-            SaveStatus.Foreground = NoteTheme.For(Data.Appearance).Muted;
+            SaveStatus.SetResourceReference(ForegroundProperty, "Muted");
         }
         saveTimer.Stop();
         if (!moving) saveTimer.Start();
@@ -103,7 +102,7 @@ internal partial class NoteWindow
         {
             SaveStatus.Content = "已保存";
             SaveStatus.ToolTip = "保存（Ctrl+S）";
-            SaveStatus.Foreground = NoteTheme.For(Data.Appearance).Muted;
+            SaveStatus.SetResourceReference(ForegroundProperty, "Muted");
         }
         controller.NoteChanged();
         return true;
@@ -114,7 +113,7 @@ internal partial class NoteWindow
         SaveError = message;
         SaveStatus.Content = "保存失败 · 点击重试";
         SaveStatus.ToolTip = message;
-        SaveStatus.Foreground = Brushes.Firebrick;
+        SaveStatus.SetResourceReference(ForegroundProperty, "Error");
         controller.NoteChanged();
     }
 

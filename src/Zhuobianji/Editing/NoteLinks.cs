@@ -40,7 +40,7 @@ internal static class NoteLinks
     internal static ProcessStartInfo LaunchInfo(Uri uri) => new(Address(uri)) { UseShellExecute = true };
 
     internal static void Open(Uri uri) => Open(uri, info => { Process.Start(info); }, OpenFileLocation,
-        message => MessageBox.Show(message, "桌边记 · 链接"));
+        message => Dialogs.Show(message, "链接"));
 
     internal static void Open(Uri uri, Action<ProcessStartInfo> launch, Action<string> selectFile, Action<string> showError)
     {

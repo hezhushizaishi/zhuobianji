@@ -276,13 +276,13 @@ internal partial class NoteEditor : UserControl
     private void PastePlain()
     {
         try { if (Clipboard.ContainsText()) InsertPlain(Clipboard.GetText()); }
-        catch (System.Runtime.InteropServices.COMException) { MessageBox.Show("剪贴板正忙，请稍后再试。", "桌边记 · 粘贴"); }
+        catch (System.Runtime.InteropServices.COMException) { Dialogs.Show("剪贴板正忙，请稍后再试。", "粘贴"); }
     }
 
     private void PasteMarkdown()
     {
         try { if (Clipboard.ContainsText()) InsertMarkdown(Clipboard.GetText()); }
-        catch (System.Runtime.InteropServices.COMException) { MessageBox.Show("剪贴板正忙，请稍后再试。", "桌边记 · 粘贴"); }
+        catch (System.Runtime.InteropServices.COMException) { Dialogs.Show("剪贴板正忙，请稍后再试。", "粘贴"); }
     }
 
     internal void ToggleStrike()

@@ -42,7 +42,7 @@ internal sealed partial class NoteController : IDisposable
         {
             hotkeys = new GlobalHotkeys(() => CreateNote(), ToggleAll);
             if (!hotkeys.TryApply(Preferences.Hotkeys, out var error))
-                MessageBox.Show(error + "\n请到设置的快捷键页面更换。", "桌边记 · 快捷键");
+                Dialogs.Show(error + "\n请到设置的快捷键页面更换。", "快捷键");
         }
         foreach (var data in loaded.Notes)
         {
@@ -79,9 +79,9 @@ internal sealed partial class NoteController : IDisposable
             }
         }
         if (readErrors.Count > 0)
-            MessageBox.Show("部分数据无法读取，原文件已保留，其他便签可以继续使用。\n\n" + string.Join("\n", readErrors), "桌边记 · 数据提示");
+            Dialogs.Show("部分数据无法读取，原文件已保留，其他便签可以继续使用。\n\n" + string.Join("\n", readErrors), "数据提示");
         if (modeErrors.Count > 0)
-            MessageBox.Show("当前无法贴到桌面，便签先以浮窗显示。稍后可从更多操作重试。\n\n" + string.Join("\n", modeErrors.Distinct()), "桌边记 · 桌面模式");
+            Dialogs.Show("当前无法贴到桌面，便签先以浮窗显示。稍后可从更多操作重试。\n\n" + string.Join("\n", modeErrors.Distinct()), "桌面模式");
     }
 
     private NoteWindow AddWindow(NoteData data)
@@ -105,7 +105,7 @@ internal sealed partial class NoteController : IDisposable
         };
         var window = AddWindow(data);
         if (collectedBy is null && data.IsOnDesktop && !window.TrySetDesktopMode(true, out var error))
-            MessageBox.Show(error, "桌边记 · 桌面模式");
+            Dialogs.Show(error, "桌面模式");
         window.MarkDirty();
         window.SaveNow();
         if (collectedBy is null) window.Reveal(activate: true);
@@ -164,7 +164,7 @@ internal sealed partial class NoteController : IDisposable
     {
         if (!window.TrySetDesktopMode(enabled, out var error))
         {
-            if (showErrors) MessageBox.Show(error, "桌边记 · 桌面模式");
+            if (showErrors) Dialogs.Show(error, "桌面模式");
             return false;
         }
         return window.SaveNow();
@@ -179,7 +179,7 @@ internal sealed partial class NoteController : IDisposable
             if (!window.TrySetDesktopMode(enabled, out var error)) { errors.Add(error!); succeeded = false; }
             else if (!window.SaveNow()) succeeded = false;
         }
-        if (showErrors && errors.Count > 0) MessageBox.Show(string.Join("\n", errors.Distinct()), "桌边记 · 桌面模式");
+        if (showErrors && errors.Count > 0) Dialogs.Show(string.Join("\n", errors.Distinct()), "桌面模式");
         return succeeded;
     }
 
@@ -223,7 +223,7 @@ internal sealed partial class NoteController : IDisposable
         if (!FlushAll())
         {
             foreach (var window in Notes.Values.Where(w => w.IsDirty).ToArray()) ShowNote(window);
-            MessageBox.Show("有便签尚未保存，程序保持运行。请在提示保存失败的便签上重试，保存成功后再退出。", "桌边记 · 尚未保存");
+            Dialogs.Show("有便签尚未保存，程序保持运行。请在提示保存失败的便签上重试，保存成功后再退出。", "尚未保存");
             return false;
         }
         Dispose();

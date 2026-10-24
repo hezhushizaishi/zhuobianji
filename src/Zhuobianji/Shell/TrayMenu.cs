@@ -41,7 +41,7 @@ internal sealed class TrayMenu : IDisposable
         {
             if (controller.TryReadStartup(out var current, out var error) && controller.TrySetStartup(!current, out error))
                 StartupItem.Checked = !current;
-            else MessageBox.Show(error, "桌边记");
+            else Dialogs.Show(error);
         });
         menu.Items.Add(StartupItem);
         if (controller.MainNote is { } main) Add(menu.Items, "打开收纳", () => controller.ShowNote(main));

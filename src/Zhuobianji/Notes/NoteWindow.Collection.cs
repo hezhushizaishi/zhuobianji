@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Zhuobianji.Core;
@@ -17,7 +18,7 @@ internal partial class NoteWindow
     private double collectionRailWidth;
     private int railAnimationVersion;
     internal double CollectionRailWidth => collectionRailWidth;
-    internal Dictionary<Guid, Button> CollectionTabButtons { get; } = [];
+    internal Dictionary<Guid, ToggleButton> CollectionTabButtons { get; } = [];
 
     private void SetRailWidth(double width)
     {
@@ -100,7 +101,7 @@ internal partial class NoteWindow
             ? Visibility.Visible : Visibility.Collapsed;
         CollectionRail.IsHitTestVisible = railVisible;
         CollectionRailToggle.Visibility = Data.IsCollectionMain ? Visibility.Visible : Visibility.Collapsed;
-        CollectionRailToggle.Background = Data.ShowCollectionRail ? NoteTheme.For(Data.Appearance).Accent : Brushes.Transparent;
+        CollectionRailToggle.IsChecked = Data.ShowCollectionRail;
         CollectionRailToggle.ToolTip = Data.ShowCollectionRail ? "隐藏左侧标签" : "显示左侧标签";
         if (!Data.IsCollectionMain) return;
 
@@ -113,56 +114,40 @@ internal partial class NoteWindow
         }
         foreach (var child in children)
         {
-            if (!CollectionTabButtons.TryGetValue(child.Data.Id, out var button))
+            if (!CollectionTabButtons.TryGetValue(child.Data.Id, out var tab))
             {
-                button = new Button { Style = (Style)FindResource("CollectionTabStyle"), Tag = child.Data.Id };
-                var title = new TextBlock { TextTrimming = TextTrimming.CharacterEllipsis };
-                var arrow = new TextBlock { Width = 12, TextAlignment = TextAlignment.Center };
-                var label = new DockPanel();
-                DockPanel.SetDock(arrow, Dock.Right);
-                label.Children.Add(arrow);
-                label.Children.Add(title);
-                button.Content = label;
-                button.Click += (_, _) => controller.ToggleCollectedNote(child);
-                button.PreviewMouseLeftButtonDown += OnCollectionDragStart;
-                button.PreviewMouseMove += OnCollectionDragMove;
-                button.PreviewMouseLeftButtonUp += (_, _) => collectionDragId = null;
-                var menu = new ContextMenu();
-                var expand = new MenuItem { Header = "展开" };
-                expand.Click += (_, _) => controller.ExpandCollectedNote(child);
-                var collapse = new MenuItem { Header = "收起" };
-                collapse.Click += (_, _) => controller.CollapseCollectedNote(child);
-                var takeOut = new MenuItem { Header = "取出" };
-                takeOut.Click += (_, _) => controller.ReleaseNote(child);
-                var deleteIcon = new Wpf.Ui.Controls.SymbolIcon { Style = (Style)FindResource("DeleteIcon") };
-                deleteIcon.SetResourceReference(Wpf.Ui.Controls.SymbolIcon.ForegroundProperty, "Muted");
-                var delete = new MenuItem { Header = "删除这张", Icon = deleteIcon };
-                delete.Click += async (_, _) => await child.ConfirmDelete(this);
-                menu.Items.Add(expand);
-                menu.Items.Add(collapse);
-                menu.Items.Add(takeOut);
-                menu.Items.Add(new Separator());
-                menu.Items.Add(delete);
-                button.ContextMenu = menu;
-                CollectionTabButtons.Add(child.Data.Id, button);
-                CollectionTabs.Children.Add(button);
+                tab = new ToggleButton { Style = (Style)FindResource("CollectionTab"), Tag = child.Data.Id };
+                tab.Click += (_, _) => { controller.ToggleCollectedNote(child); RefreshCollectionState(); };
+                tab.PreviewMouseLeftButtonDown += OnCollectionDragStart;
+                tab.PreviewMouseMove += OnCollectionDragMove;
+                tab.PreviewMouseLeftButtonUp += (_, _) => collectionDragId = null;
+                var menu = (ContextMenu)FindResource("CollectionTabMenu");
+                menu.DataContext = child;
+                tab.ContextMenu = menu;
+                CollectionTabButtons.Add(child.Data.Id, tab);
+                CollectionTabs.Children.Add(tab);
             }
-            var content = (DockPanel)button.Content;
-            ((TextBlock)content.Children[0]).Text = child.IsVisible ? "‹" : "›";
-            ((TextBlock)content.Children[1]).Text = child.Data.Preview;
-            button.Background = child.IsVisible ? NoteTheme.For(Data.Appearance).Accent : NoteTheme.For(Data.Appearance).Surface;
-            button.ToolTip = child.Data.Preview + (child.IsVisible ? "\n收起" : "\n展开") + "\n拖动调整顺序";
-            button.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, child.Data.Preview);
+            tab.Content = child.Data.Preview;
+            // 点击会先翻转 IsChecked；这里按子便签的实际显示状态改回来。
+            tab.IsChecked = child.IsVisible;
+            tab.ToolTip = child.Data.Preview + (child.IsVisible ? "\n收起" : "\n展开") + "\n拖动调整顺序";
+            tab.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, child.Data.Preview);
         }
         for (var index = 0; index < children.Length; index++)
         {
-            var button = CollectionTabButtons[children[index].Data.Id];
-            if (CollectionTabs.Children[index] == button) continue;
-            CollectionTabs.Children.Remove(button);
-            CollectionTabs.Children.Insert(index, button);
+            var tab = CollectionTabButtons[children[index].Data.Id];
+            if (CollectionTabs.Children[index] == tab) continue;
+            CollectionTabs.Children.Remove(tab);
+            CollectionTabs.Children.Insert(index, tab);
         }
-        CollectionNewButton.ToolTip = "新建收纳便签";
     }
+
+    // 标签右键菜单（NoteWindow.xaml 的 CollectionTabMenu）；DataContext 是对应的子便签。
+    private static NoteWindow TabNote(object sender) => (NoteWindow)((FrameworkElement)sender).DataContext;
+    private void OnTabExpand(object sender, RoutedEventArgs e) => controller.ExpandCollectedNote(TabNote(sender));
+    private void OnTabCollapse(object sender, RoutedEventArgs e) => controller.CollapseCollectedNote(TabNote(sender));
+    private void OnTabTakeOut(object sender, RoutedEventArgs e) => controller.ReleaseNote(TabNote(sender));
+    private async void OnTabDelete(object sender, RoutedEventArgs e) => await TabNote(sender).ConfirmDelete(this);
 
     private void OnSetMain(object sender, RoutedEventArgs e) => controller.SetMainNote(this);
     private void OnCollect(object sender, RoutedEventArgs e) => controller.CollectNote(this);

@@ -100,7 +100,7 @@ internal partial class NoteWindow : Window
         PinButton.Content = desktop.IsAttached ? "桌面" : Topmost ? "已置顶" : "置顶";
         PinButton.IsEnabled = !desktop.IsAttached;
         PinButton.ToolTip = desktop.IsAttached ? "桌面模式下不置顶；从更多操作切回浮窗后可置顶。" : "切换置顶（Ctrl+Shift+T）";
-        PinButton.Background = desktop.IsAttached || Topmost ? NoteTheme.For(Data.Appearance).Accent : Brushes.Transparent;
+        PinButton.IsChecked = desktop.IsAttached || Topmost;
         DesktopMenuItem.IsEnabled = !desktop.IsAttached;
         FloatingMenuItem.IsEnabled = desktop.IsAttached || Data.IsOnDesktop;
     }
@@ -165,32 +165,15 @@ internal partial class NoteWindow : Window
     private void OnFloating(object sender, RoutedEventArgs e) => controller.SetDesktopMode(this, false);
     private async void OnDelete(object sender, RoutedEventArgs e) => await ConfirmDelete();
 
-    private Wpf.Ui.Controls.MessageBox CreateConfirmation(string title, object content, string primaryText,
-        Wpf.Ui.Controls.ControlAppearance appearance = Wpf.Ui.Controls.ControlAppearance.Secondary,
-        double width = 440, NoteWindow? owner = null)
-    {
-        var dialog = new Wpf.Ui.Controls.MessageBox
-        {
-            Owner = owner ?? this, Title = title, Content = content,
-            PrimaryButtonText = primaryText, CloseButtonText = "取消", PrimaryButtonAppearance = appearance,
-            Width = width, WindowStartupLocation = WindowStartupLocation.CenterOwner
-        };
-        dialog.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ThemesDictionary
-            { Theme = Data.Appearance.Dark ? Wpf.Ui.Appearance.ApplicationTheme.Dark : Wpf.Ui.Appearance.ApplicationTheme.Light });
-        dialog.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ControlsDictionary());
-        return dialog;
-    }
     internal async Task ConfirmDelete(NoteWindow? owner = null)
     {
         if (deleteConfirmationOpen) return;
         deleteConfirmationOpen = true;
         try
         {
-            var dialog = CreateConfirmation(Data.IsCollectionMain ? "删除主便签" : "删除便签",
+            if (await Dialogs.Confirm(owner ?? this, Data.Appearance.Dark, Data.IsCollectionMain ? "删除主便签" : "删除便签",
                 Data.IsCollectionMain ? "主便签会永久删除，无法撤销。\n收纳的便签会释放到桌面。" : "这张便签会永久删除，无法撤销。",
-                "删除", Wpf.Ui.Controls.ControlAppearance.Danger, width: 400, owner: owner);
-            dialog.Loaded += (_, _) => dialog.MoveFocus(new TraversalRequest(FocusNavigationDirection.Last));
-            if (await dialog.ShowDialogAsync() == Wpf.Ui.Controls.MessageBoxResult.Primary)
+                "删除", danger: true, width: 400))
                 controller.DeleteNote(this);
         }
         finally { deleteConfirmationOpen = false; }
@@ -214,7 +197,6 @@ internal partial class NoteWindow : Window
         var editor = Editor;
         var markdown = editor.Format == NoteFormat.Markdown;
         var rich = editor.Format == NoteFormat.RichText;
-        ModeButton.Visibility = Visibility.Visible;
         ModeButton.Content = editor.Format switch { NoteFormat.RichText => "富文本 ▾", NoteFormat.Markdown => "Markdown ▾", _ => "纯文本 ▾" };
         RichFormatItem.IsChecked = editor.Format == NoteFormat.RichText;
         MarkdownFormatItem.IsChecked = editor.Format == NoteFormat.Markdown;
@@ -223,26 +205,15 @@ internal partial class NoteWindow : Window
         LinkButton.Visibility = rich || markdown ? Visibility.Visible : Visibility.Collapsed;
         if (!rich) FormatBar.Visibility = Visibility.Collapsed;
         MarkdownButtons.Visibility = markdown ? Visibility.Visible : Visibility.Collapsed;
-        SourceButton.Background = !editor.IsPreview ? NoteTheme.For(Data.Appearance).Accent : Brushes.Transparent;
-        PreviewButton.Background = editor.IsPreview ? NoteTheme.For(Data.Appearance).Accent : Brushes.Transparent;
+        SourceButton.IsChecked = !editor.IsPreview;
+        PreviewButton.IsChecked = editor.IsPreview;
     }
     internal void ApplyAppearance(NoteAppearance appearance)
     {
         Data = Data with { Appearance = appearance };
-        var theme = NoteTheme.For(appearance);
-        Resources["Surface"] = theme.Surface;
-        Resources["Text"] = theme.Text;
-        Resources["Muted"] = theme.Muted;
-        Resources["Edge"] = theme.Border;
-        Resources["Accent"] = theme.Accent;
-        var surface = theme.Surface.Color;
-        byte Shade(byte value) => appearance.Dark ? (byte)(value + (255 - value) * 0.07) : (byte)(value * 0.96);
-        Resources["Header"] = new SolidColorBrush(Color.FromRgb(Shade(surface.R), Shade(surface.G), Shade(surface.B)));
+        NoteTheme.For(appearance).ApplyTo(Resources);
         Opacity = appearance.Opacity;
         Editor.ApplyAppearance(appearance);
-        UpdatePinnedButton();
-        UpdateEditorButtons();
-        SaveStatus.Foreground = SaveError is null ? theme.Muted : Brushes.Firebrick;
     }
 
     private void OnAppearance(object sender, RoutedEventArgs e) => controller.ShowSettings(this);
@@ -250,8 +221,7 @@ internal partial class NoteWindow : Window
     private void OnTextColor(object sender, RoutedEventArgs e)
     {
         var menu = new ContextMenu { PlacementTarget = ColorButton, Placement = PlacementMode.Top };
-        foreach (var (name, color) in new[] { ("默认文字", NoteTheme.For(Data.Appearance).Text),
-            ("蓝色", NoteTheme.B("#447EC2")), ("红色", NoteTheme.B("#C95555")), ("绿色", NoteTheme.B("#39906F")), ("紫色", NoteTheme.B("#9963B6")) })
+        foreach (var (name, color) in NoteTheme.TextColors.Prepend(("默认文字", NoteTheme.For(Data.Appearance).Text)))
         {
             var item = new MenuItem { Header = name, Foreground = color };
             item.Click += (_, _) => Editor.SetTextColor(color);
@@ -299,11 +269,10 @@ internal partial class NoteWindow : Window
             var content = new StackPanel();
             content.Children.Add(new TextBlock { Text = notice, TextWrapping = TextWrapping.Wrap, Foreground = NoteTheme.For(Data.Appearance).Text });
             content.Children.Add(acknowledge);
-            var dialog = CreateConfirmation("切换格式", content, "转换");
-            if (await dialog.ShowDialogAsync() != Wpf.Ui.Controls.MessageBoxResult.Primary)
+            if (!await Dialogs.Confirm(this, Data.Appearance.Dark, "切换格式", content, "转换"))
             { UpdateEditorButtons(); return; }
             if (acknowledge.IsChecked == true && !controller.TrySetFormatWarnings(false, out var error))
-                MessageBox.Show(error, "桌边记 · 设置");
+                Dialogs.Show(error, "设置");
         }
         ChangeNoteFormat(target);
     }

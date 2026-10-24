@@ -26,12 +26,12 @@ public static class Program
             }
             catch (IOException ex)
             {
-                MessageBox.Show($"无法打开便签数据。程序可能已经在运行，请先从右下角托盘找回便签。\n\n{ex.Message}", "桌边记");
+                Dialogs.Show($"无法打开便签数据。程序可能已经在运行，请先从右下角托盘找回便签。\n\n{ex.Message}");
                 application.Shutdown(1);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"启动失败：{ex.Message}", "桌边记");
+                Dialogs.Show($"启动失败：{ex.Message}");
                 application.Shutdown(1);
             }
         };

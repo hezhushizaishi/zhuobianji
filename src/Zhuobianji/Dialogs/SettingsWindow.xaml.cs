@@ -2,9 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
-using Wpf.Ui.Markup;
 using Zhuobianji.Core;
 
 namespace Zhuobianji;
@@ -52,8 +50,7 @@ internal partial class SettingsWindow : FluentWindow
     {
         if (darkTheme == dark) return;
         darkTheme = dark;
-        var theme = dark ? ApplicationTheme.Dark : ApplicationTheme.Light;
-        Resources.MergedDictionaries[0] = new ThemesDictionary { Theme = theme };
+        NoteTheme.ApplyFluent(Resources, dark);
     }
 
     private void UpdateLabels()

@@ -15,7 +15,7 @@ namespace Zhuobianji.Checks;
 
 internal static partial class Program
 {
-    private static Guid[] VisibleTabOrder(NoteWindow main) => main.CollectionTabs.Children.OfType<Button>()
+    private static Guid[] VisibleTabOrder(NoteWindow main) => main.CollectionTabs.Children.OfType<ToggleButton>()
         .Select(button => (Guid)button.Tag).ToArray();
 
     // WPF 的构造函数不公开；测试向本程序的实际拖放处理器送入同样的参数。
@@ -74,7 +74,7 @@ internal static partial class Program
             savedMain.Text.Contains("排序时刚写的文字") && SameCard(savedMain, initialMain),
             "顺序与待保存正文一起保存，主正文位置和宽度不变");
 
-        var lastButton = (Button)main.CollectionTabs.Children[main.CollectionTabs.Children.Count - 1];
+        var lastButton = (FrameworkElement)main.CollectionTabs.Children[main.CollectionTabs.Children.Count - 1];
         var bottomY = lastButton.TranslatePoint(new Point(), main.CollectionTabs).Y + lastButton.ActualHeight + 6;
         main.CollectionScroll.RaiseEvent(CollectionDragEvent(main, a.Data.Id, bottomY, DragDrop.DropEvent));
         main.UpdateLayout();
