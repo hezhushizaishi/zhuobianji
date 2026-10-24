@@ -18,7 +18,6 @@ if (Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $targ
 $isFormal = $targetPath -eq (Join-Path $projectRoot '桌边记')
 # 隔离安装的回退文件留在测试目录，不能淘汰正式回退版本。
 $backupRoot = $(if ($isFormal) { Join-Path $projectRoot 'archive\rollback' } else { $targetPath + '.rollback' })
-$startupRecord = $(if ($isFormal) { Join-Path $projectRoot 'archive\Startup-before.txt' } else { $targetPath + '.startup-before.txt' })
 $backupPath = Join-Path $backupRoot ('Before-update-' + (Get-Date -Format 'yyyyMMdd-HHmmssfff'))
 $stagingPath = Join-Path $projectRoot ('.local\install-' + [guid]::NewGuid().ToString('N'))
 $replaced = $false
@@ -29,18 +28,10 @@ try {
     foreach ($file in Get-ChildItem -LiteralPath (Join-Path $sourcePath 'docs') -File) {
         Copy-Item -LiteralPath $file.FullName -Destination (Join-Path $stagingPath 'docs')
     }
-    $legacyFiles = @(if (Test-Path -LiteralPath $targetPath) {
-        Get-ChildItem -LiteralPath $targetPath -File | Where-Object {
-            $_.Extension -in @('.dll', '.pdb') -or $_.Name -in @(
-                'WeNote.Rewrite.deps.json', 'WeNote.Rewrite.runtimeconfig.json', 'createdump.exe',
-                '使用说明.md', 'THIRD-PARTY-NOTICES.txt', 'WPF-UI-THIRD-PARTY-NOTICES.txt')
-        }
-    })
-    if ((Test-Path -LiteralPath $targetExe) -or $legacyFiles.Count) {
+    if (Test-Path -LiteralPath $targetExe) {
         New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
-        if (Test-Path -LiteralPath $targetExe) { Copy-Item -LiteralPath $targetExe -Destination $backupPath }
+        Copy-Item -LiteralPath $targetExe -Destination $backupPath
         if (Test-Path -LiteralPath (Join-Path $targetPath 'docs')) { Copy-Item -LiteralPath (Join-Path $targetPath 'docs') -Destination $backupPath -Recurse }
-        foreach ($file in $legacyFiles) { Copy-Item -LiteralPath $file.FullName -Destination $backupPath }
     }
     $dataPath = Join-Path $targetPath 'Data'
     New-Item -ItemType Directory -Path $dataPath -Force | Out-Null
@@ -53,19 +44,12 @@ try {
     if (Test-Path -LiteralPath $targetExe) { [IO.File]::Replace($stagedExe, $targetExe, [NullString]::Value) }
     else { Move-Item -LiteralPath $stagedExe -Destination $targetExe }
     $replaced = $true
+    # 首次安装开启自启；之后升级保留用户在设置里的选择。启动项名沿用 WeNote，与程序内的开关一致。
     $startupMarker = Join-Path $dataPath '.autostart-initialized'
-    $oldStartupMarker = Join-Path $targetPath '.autostart-initialized'
-    if (Test-Path -LiteralPath $oldStartupMarker) { Move-Item -LiteralPath $oldStartupMarker -Destination $startupMarker -Force }
     if (-not (Test-Path -LiteralPath $startupMarker)) {
         $startupKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($StartupRegistrySubKey)
-        try {
-            $previousStartup = $startupKey.GetValue('WeNote')
-            if ($null -ne $previousStartup -and -not (Test-Path -LiteralPath $startupRecord)) {
-                New-Item -ItemType Directory -Path (Split-Path -Parent $startupRecord) -Force | Out-Null
-                [IO.File]::WriteAllText($startupRecord, [string]$previousStartup)
-            }
-            $startupKey.SetValue('WeNote', ('"' + $targetExe + '"'), [Microsoft.Win32.RegistryValueKind]::String)
-        } finally { $startupKey.Dispose() }
+        try { $startupKey.SetValue('WeNote', ('"' + $targetExe + '"'), [Microsoft.Win32.RegistryValueKind]::String) }
+        finally { $startupKey.Dispose() }
         [IO.File]::WriteAllText($startupMarker, 'Startup initialized. Later upgrades preserve the user choice.')
     }
 } catch {
@@ -80,11 +64,7 @@ try {
         Remove-Item -LiteralPath $resolvedStaging -Recurse -Force
     }
 }
-# 更新成功后清理已备份的旧运行库，并只保留最近一份程序回退。
-foreach ($file in $legacyFiles) {
-    if ($file.DirectoryName -ne $targetPath) { throw '旧文件路径不在升级目录内。' }
-    Remove-Item -LiteralPath $file.FullName -Force
-}
+# 更新成功后只保留最近一份程序回退。
 if (Test-Path -LiteralPath $backupPath) {
     foreach ($oldBackup in Get-ChildItem -LiteralPath $backupRoot -Directory -Filter 'Before-update-*') {
         if ($oldBackup.FullName -eq $backupPath) { continue }

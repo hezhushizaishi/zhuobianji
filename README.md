@@ -50,4 +50,4 @@
 
 如果用起来有什么不顺手的地方，欢迎在 Issue 里告诉我。
 
-[使用说明](docs/使用说明.md) · [源码导航](src/README.md) · [MIT 许可](LICENSE)
+[使用说明](docs/使用说明.md) · [开发说明](docs/开发说明.md) · [MIT 许可](LICENSE)

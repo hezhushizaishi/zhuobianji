@@ -15,7 +15,7 @@ $retiredPath = $outputPath + '.retired-' + [guid]::NewGuid().ToString('N')
 $promoted = $false
 try {
     # 在空目录发布；构建失败时原 current 仍在原处。
-    & (Join-Path $PSScriptRoot 'dotnet.cmd') publish (Join-Path $projectRoot 'src\Zhuobianji\Zhuobianji.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeSourceRevisionInInformationalVersion=false -p:DebugType=embedded -p:NuGetAudit=false --nologo --verbosity minimal -o $stagingPath
+    & dotnet publish (Join-Path $projectRoot 'src\Zhuobianji\Zhuobianji.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeSourceRevisionInInformationalVersion=false -p:DebugType=embedded -p:NuGetAudit=false --nologo --verbosity minimal -o $stagingPath
     if ($LASTEXITCODE -ne 0) { throw '桌边记构建失败，已有输出保留。' }
     Move-Item -LiteralPath (Join-Path $stagingPath 'Zhuobianji.exe') -Destination (Join-Path $stagingPath '桌边记.exe')
     $docsPath = Join-Path $stagingPath 'docs'
