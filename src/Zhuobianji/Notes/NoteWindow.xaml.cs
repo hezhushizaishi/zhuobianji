@@ -19,14 +19,9 @@ internal partial class NoteWindow : Window
 {
     private readonly NoteController controller;
     private readonly DesktopHost desktop;
-    private readonly DispatcherTimer saveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private bool permanentlyClosing;
     private bool deleteConfirmationOpen;
-    private bool documentDirty;
-    private bool moving;
     internal NoteData Data { get; private set; }
-    internal bool IsDirty { get; private set; }
-    internal string? SaveError { get; private set; }
     internal bool IsDesktopAttached => desktop.IsAttached;
     internal object DesktopDiagnostics => desktop.Diagnostics();
 
@@ -36,7 +31,7 @@ internal partial class NoteWindow : Window
         this.controller = controller;
         desktop = new DesktopHost(this);
         Data = data;
-        collectionRailWidth = data.IsCollectionMain ? 92 : 0;
+        collectionRailWidth = data.IsCollectionMain ? RailWidth : 0;
         MinWidth = 320 + CollectionRailWidth;
         Width = Math.Max(MinWidth, data.Width + CollectionRailWidth);
         Height = Math.Max(MinHeight, data.Height);
@@ -49,21 +44,7 @@ internal partial class NoteWindow : Window
         UpdateEditorButtons();
         UpdateTitle();
         UpdatePinnedButton();
-        saveTimer.Tick += (_, _) => { if (!moving) SaveNow(); };
-        Editor.ContentChanged += () =>
-        {
-            Data = Data with { Text = Editor.TextContent, Format = Editor.Format, PreviewMarkdown = Editor.IsPreview };
-            UpdateEditorButtons();
-            UpdateTitle();
-            MarkDirty();
-        };
-        LocationChanged += (_, _) => MarkDirty(documentChanged: false);
-        SizeChanged += (_, _) => MarkDirty(documentChanged: false);
-        SourceInitialized += (_, _) =>
-        {
-            var handle = new WindowInteropHelper(this).Handle;
-            HwndSource.FromHwnd(handle)?.AddHook(OnWindowMessage);
-        };
+        InitializeSaving();
         PreviewKeyDown += OnKeyboard;
     }
 
@@ -101,95 +82,12 @@ internal partial class NoteWindow : Window
         }
     }
 
-    private nint OnWindowMessage(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)
-    {
-        if (message == 0x0231) { moving = true; saveTimer.Stop(); }
-        else if (message == 0x0232)
-        {
-            moving = false;
-            if (IsDirty) saveTimer.Start();
-        }
-        return 0;
-    }
-
-    internal void MarkDirty(bool documentChanged = true)
-    {
-        if (permanentlyClosing) return;
-        IsDirty = true;
-        documentDirty |= documentChanged;
-        if (documentChanged && SaveError is null)
-        {
-            SaveStatus.Content = "保存中";
-            SaveStatus.Foreground = NoteTheme.For(Data.Appearance).Muted;
-        }
-        saveTimer.Stop();
-        if (!moving) saveTimer.Start();
-        if (documentChanged) controller.NoteChanged();
-    }
-
-    internal NoteData Snapshot()
-    {
-        var bounds = desktop.IsAttached ? desktop.ScreenBounds()
-            : WindowState == WindowState.Normal || RestoreBounds.IsEmpty ? new Rect(Left, Top, Width, Height) : RestoreBounds;
-        return (documentDirty ? Editor.Snapshot(Data) : Data) with
-        {
-            Left = bounds.Left + CollectionRailWidth,
-            Top = bounds.Top,
-            Width = bounds.Width - CollectionRailWidth,
-            Height = bounds.Height,
-            IsPinned = desktop.IsAttached ? Data.IsPinned : Topmost,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-    }
-
-    internal bool SaveNow()
-    {
-        saveTimer.Stop();
-        if (!IsDirty) return true;
-        var reportSaved = documentDirty || SaveError is not null;
-        var snapshot = Snapshot();
-        if (!controller.Save(snapshot, out var error))
-        {
-            ReportSaveError(error!);
-            return false;
-        }
-        Data = snapshot;
-        IsDirty = false;
-        documentDirty = false;
-        SaveError = null;
-        if (reportSaved)
-        {
-            SaveStatus.Content = "已保存";
-            SaveStatus.ToolTip = "保存（Ctrl+S）";
-            SaveStatus.Foreground = NoteTheme.For(Data.Appearance).Muted;
-        }
-        controller.NoteChanged();
-        return true;
-    }
-
-    internal void ReportSaveError(string message)
-    {
-        SaveError = message;
-        SaveStatus.Content = "保存失败 · 点击重试";
-        SaveStatus.ToolTip = message;
-        SaveStatus.Foreground = Brushes.Firebrick;
-        controller.NoteChanged();
-    }
-
-    internal void SetHidden(bool value)
-    {
-        if (Data.IsHidden == value) return;
-        Data = Data with { IsHidden = value };
-        MarkDirty(documentChanged: false);
-    }
-
     internal void TogglePinned()
     {
         if (desktop.IsAttached) return;
         Topmost = !Topmost;
-        Data = Data with { IsPinned = Topmost };
+        Update(data => data with { IsPinned = Topmost });
         UpdatePinnedButton();
-        MarkDirty(documentChanged: false);
     }
 
     private void UpdateTitle()
@@ -218,10 +116,9 @@ internal partial class NoteWindow : Window
                 Topmost = false;
             }
             desktop.SetAttached(enabled);
-            Data = Data with { IsOnDesktop = enabled };
+            Update(data => data with { IsOnDesktop = enabled });
             if (!enabled) Topmost = Data.IsPinned;
             UpdatePinnedButton();
-            MarkDirty(documentChanged: false);
             error = null;
             return true;
         }
@@ -308,9 +205,8 @@ internal partial class NoteWindow : Window
     internal void SetMarkdownPreview(bool enabled)
     {
         Editor.SetPreview(enabled);
-        Data = Data with { PreviewMarkdown = enabled };
+        Update(data => data with { PreviewMarkdown = enabled });
         UpdateEditorButtons();
-        MarkDirty(documentChanged: false);
     }
 
     private void UpdateEditorButtons()

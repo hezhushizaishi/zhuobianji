@@ -12,6 +12,8 @@ namespace Zhuobianji;
 internal partial class NoteWindow
 {
     internal NoteEditor Editor => OwnEditor;
+    // 主便签左侧留给标签的透明区域宽度；Snapshot 保存的位置宽度不含这一块。
+    internal const double RailWidth = 92;
     private double collectionRailWidth;
     private int railAnimationVersion;
     internal double CollectionRailWidth => collectionRailWidth;
@@ -37,19 +39,17 @@ internal partial class NoteWindow
         RailTranslation.BeginAnimation(TranslateTransform.XProperty, null);
     }
 
-    internal void SetCollectionState(bool main, Guid? parent)
+    // 成为或不再是主便签时，窗口向左扩出或收回标签区，正文卡片位置不动。
+    private void ApplyCollectionMain()
     {
         StopRailAnimation();
-        Data = Data with { IsCollectionMain = main, CollectedBy = parent };
-        SetRailWidth(main ? 92 : 0);
-        MarkDirty(documentChanged: false);
+        SetRailWidth(Data.IsCollectionMain ? RailWidth : 0);
     }
 
     private void OnToggleRail(object sender, RoutedEventArgs e)
     {
         if (!Data.IsCollectionMain) return;
-        Data = Data with { ShowCollectionRail = !Data.ShowCollectionRail };
-        var show = Data.ShowCollectionRail;
+        var show = !Data.ShowCollectionRail;
         var fromOpacity = CollectionRail.Opacity;
         var fromOffset = RailTranslation.X;
         StopRailAnimation();
@@ -75,7 +75,7 @@ internal partial class NoteWindow
             CollectionRail.BeginAnimation(OpacityProperty, fade);
             RailTranslation.BeginAnimation(TranslateTransform.XProperty, slide);
         }
-        MarkDirty(documentChanged: false);
+        Update(data => data with { ShowCollectionRail = show });
         RefreshCollectionState();
     }
     internal void RefreshCollectionState()

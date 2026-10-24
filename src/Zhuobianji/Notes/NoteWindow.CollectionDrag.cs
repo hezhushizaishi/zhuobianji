@@ -11,16 +11,6 @@ internal partial class NoteWindow
     private Guid? collectionDragId;
     private Point collectionDragStart;
 
-    internal bool SaveCollectionOrder(Guid[] order)
-    {
-        var previous = Data.CollectionOrder;
-        Data = Data with { CollectionOrder = order };
-        MarkDirty(documentChanged: false);
-        if (SaveNow()) return true;
-        Data = Data with { CollectionOrder = previous };
-        return false;
-    }
-
     private void OnCollectionDragStart(object sender, MouseButtonEventArgs e)
     {
         collectionDragId = (Guid)((Button)sender).Tag;

@@ -25,7 +25,7 @@ internal sealed partial class NoteController
         if (insertionIndex == oldIndex) return true;
         order.RemoveAt(oldIndex);
         order.Insert(insertionIndex, id);
-        var saved = main.SaveCollectionOrder(order.ToArray());
+        var saved = main.TryCommit(data => data with { CollectionOrder = order.ToArray() });
         RefreshCollections();
         return saved;
     }
@@ -40,26 +40,17 @@ internal sealed partial class NoteController
     internal bool SetMainNote(NoteWindow window)
     {
         if (MainNote is not null && MainNote != window || window.Data.CollectedBy is not null) return false;
-        var oldMain = window.Data.IsCollectionMain;
-        window.SetCollectionState(true, null);
-        if (!window.SaveNow()) { window.SetCollectionState(oldMain, null); RefreshCollections(); return false; }
+        var saved = window.TryCommit(data => data with { IsCollectionMain = true, CollectedBy = null });
         RefreshCollections();
-        return true;
+        return saved;
     }
 
     internal bool CollectNote(NoteWindow window)
     {
         if (MainNote is not { } main || main == window || window.Data.IsCollectionMain) return false;
-        var oldParent = window.Data.CollectedBy;
-        var oldHidden = window.Data.IsHidden;
-        window.SetCollectionState(false, main.Data.Id);
-        window.SetHidden(true);
-        if (!window.SaveNow())
-        { window.SetCollectionState(false, oldParent); window.SetHidden(oldHidden); return false; }
+        if (!window.TryCommit(data => data with { CollectedBy = main.Data.Id, IsHidden = true })) return false;
         window.Hide();
-        main.SetHidden(false);
-        main.SaveNow();
-        main.Reveal(activate: true);
+        ShowSaved(main, activate: true);
         RefreshCollections();
         return true;
     }
@@ -67,9 +58,7 @@ internal sealed partial class NoteController
     internal bool ExpandCollectedNote(NoteWindow window)
     {
         if (window.Data.CollectedBy is null || MainNote is not { } main) return false;
-        main.SetHidden(false);
-        main.SaveNow();
-        main.Reveal(activate: false);
+        ShowSaved(main, activate: false);
         if (!window.IsVisible)
         {
             var area = SystemParameters.WorkArea;
@@ -80,9 +69,7 @@ internal sealed partial class NoteController
             window.Top = Math.Max(area.Top, Math.Min(main.Top + index % 5 * 26, area.Bottom - window.Height));
             if (window.Data.IsOnDesktop && !window.IsDesktopAttached) SetDesktopMode(window, true);
         }
-        window.SetHidden(false);
-        window.SaveNow();
-        window.Reveal(activate: true);
+        ShowSaved(window, activate: true);
         RefreshCollections();
         return true;
     }
@@ -98,12 +85,7 @@ internal sealed partial class NoteController
     internal bool ReleaseNote(NoteWindow window)
     {
         if (window.Data.CollectedBy is null) return true;
-        var oldParent = window.Data.CollectedBy;
-        var oldHidden = window.Data.IsHidden;
-        window.SetCollectionState(false, null);
-        window.SetHidden(false);
-        if (!window.SaveNow())
-        { window.SetCollectionState(false, oldParent); window.SetHidden(oldHidden); return false; }
+        if (!window.TryCommit(data => data with { CollectedBy = null, IsHidden = false })) return false;
         if (window.Data.IsOnDesktop && !window.IsDesktopAttached) SetDesktopMode(window, true);
         window.Reveal(activate: true);
         RefreshCollections();

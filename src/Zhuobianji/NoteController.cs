@@ -54,7 +54,7 @@ internal sealed partial class NoteController : IDisposable
         foreach (var window in Notes.Values)
         {
             if (window.Data.CollectedBy is Guid parent && (MainNote is null || MainNote.Data.Id != parent))
-            { window.SetCollectionState(false, null); window.SaveNow(); }
+            { window.Update(data => data with { IsCollectionMain = false, CollectedBy = null }); window.SaveNow(); }
             if (window.Data.CollectedBy is not null) continue;
             if (window.Data.IsOnDesktop && !window.TrySetDesktopMode(true, out var error)) modeErrors.Add(error!);
             if (!window.Data.IsHidden) window.Reveal(activate: false);
@@ -67,7 +67,7 @@ internal sealed partial class NoteController : IDisposable
             if (visible.Length == 0)
             {
                 var latest = RootNotes.MaxBy(w => w.Data.UpdatedAt)!;
-                latest.SetHidden(false);
+                latest.Update(data => data with { IsHidden = false });
                 latest.SaveNow();
                 latest.Reveal(activate: true);
             }
@@ -128,30 +128,31 @@ internal sealed partial class NoteController : IDisposable
         SaveAndHide(window);
     }
 
+    // 待写正文和隐藏状态一次提交，成功才隐藏；失败时窗口和错误提示留在原处。
     private bool SaveAndHide(NoteWindow window)
     {
-        var oldHidden = window.Data.IsHidden;
-        window.SetHidden(true);
-        if (!window.SaveNow()) { window.SetHidden(oldHidden); return false; }
+        if (!window.TryCommit(data => data with { IsHidden = true })) return false;
         window.Hide();
         NoteChanged();
         return true;
     }
+
+    // 显示不因保存失败而中止：状态留在内存，窗口上的保存提示负责重试。
+    private static void ShowSaved(NoteWindow window, bool activate)
+    {
+        window.Update(data => data with { IsHidden = false });
+        window.SaveNow();
+        window.Reveal(activate);
+    }
+
     internal void ShowNote(NoteWindow window)
     {
         if (window.Data.CollectedBy is not null) { ExpandCollectedNote(window); return; }
-        window.SetHidden(false);
-        window.SaveNow();
-        window.Reveal(activate: true);
+        ShowSaved(window, activate: true);
     }
     internal void ShowAll()
     {
-        foreach (var window in RootNotes.ToArray())
-        {
-            window.SetHidden(false);
-            window.SaveNow();
-            window.Reveal(activate: false);
-        }
+        foreach (var window in RootNotes.ToArray()) ShowSaved(window, activate: false);
         (MainNote ?? RootNotes.FirstOrDefault())?.Activate();
     }
 
