@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Xml.Linq;
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
 using Markdig;
@@ -64,8 +65,7 @@ internal static class FormattedDocuments
         document.LineHeight = appearance.FontSize * NoteTheme.LineHeightFactor;
         foreach (var element in DocumentText.Elements(document).ToArray())
         {
-            var code = element.FontFamily.Source.Contains("Consolas", StringComparison.OrdinalIgnoreCase) ||
-                element.FontFamily.Source.Contains("Courier", StringComparison.OrdinalIgnoreCase);
+            var code = DocumentText.IsCode(element);
             if (pasted && !code)
             {
                 // 标题的相对大小保留，正文不继承网页或其他程序的字体、字号。
@@ -73,6 +73,12 @@ internal static class FormattedDocuments
                     element.FontSize > appearance.FontSize * 1.15;
                 element.ClearValue(TextElement.FontFamilyProperty);
                 if (!heading) element.ClearValue(TextElement.FontSizeProperty);
+            }
+            // 从深色便签复制到浅色便签（或反过来）时，原主题的文字色和链接色换成本便签的。
+            if (pasted && element.ReadLocalValue(TextElement.ForegroundProperty) is SolidColorBrush brush)
+            {
+                if (element is Hyperlink) { if (NoteTheme.IsThemeLink(brush.Color)) element.Foreground = NoteTheme.For(appearance).Link; }
+                else if (NoteTheme.IsThemeText(brush.Color)) element.ClearValue(TextElement.ForegroundProperty);
             }
             if (element is System.Windows.Documents.Block block) block.ClearValue(System.Windows.Documents.Block.LineHeightProperty);
             if (element is Paragraph paragraph && !code) paragraph.Margin = Below(NoteTheme.ParagraphSpacing);
@@ -308,6 +314,35 @@ internal static class FormattedDocuments
         using var stream = new MemoryStream();
         new TextRange(document.ContentStart, document.ContentEnd).Save(stream, format);
         return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    // 便签存储用的富文本不带主题值，换主题、改主题色后旧内容照样跟随。
+    internal static string SaveRich(FlowDocument document) => WithoutTheme(Save(document, DataFormats.Xaml));
+
+    internal static void LoadRich(FlowDocument document, string xaml, NoteAppearance appearance)
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(WithoutTheme(xaml)));
+        new TextRange(document.ContentStart, document.ContentEnd).Load(stream, DataFormats.Xaml);
+        foreach (var link in DocumentText.Elements(document).OfType<Hyperlink>())
+            if (link.ReadLocalValue(TextElement.ForegroundProperty) == DependencyProperty.UnsetValue)
+                link.Foreground = NoteTheme.For(appearance).Link;
+    }
+
+    // TextRange.Save 把文档的字体、字号、行高和正文色写在根 Section 上，读取时会变成每段的本地值；
+    // 这里去掉这些，以及等于主题正文色的文字色、等于主题链接色的链接色（读取后按当前主题补回）。
+    private static string WithoutTheme(string xaml)
+    {
+        var root = XElement.Parse(xaml, LoadOptions.PreserveWhitespace);
+        foreach (var name in new[] { "FontFamily", "FontSize", "LineHeight", "Foreground" }) root.Attribute(name)?.Remove();
+        foreach (var element in root.Descendants())
+        {
+            if (element.Attribute("Foreground") is not { } foreground) continue;
+            Color color;
+            try { color = (Color)ColorConverter.ConvertFromString(foreground.Value); }
+            catch (Exception ex) when (ex is FormatException or NotSupportedException) { continue; }
+            if (element.Name.LocalName == "Hyperlink" ? NoteTheme.IsThemeLink(color) : NoteTheme.IsThemeText(color)) foreground.Remove();
+        }
+        return root.ToString(SaveOptions.DisableFormatting);
     }
 
     internal static string PlainText(FlowDocument document)

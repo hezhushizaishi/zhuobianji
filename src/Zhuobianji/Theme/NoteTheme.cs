@@ -31,6 +31,16 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
     internal const double ListIndent = 20;
     internal const double BlockSpacing = 12;
 
+    // 富文本里显式写着这些颜色时视为「跟随主题」：存储时去掉，读取和粘贴时换成当前主题的颜色。
+    // 0.8.x 及以前会把当时的主题正文色、链接色写进存储，旧值固定列在这里；以后改主题色时这两行保持不动。
+    private static readonly Color[] LegacyText = [C("#303C49"), C("#E4ECF5")];
+    private static readonly Color[] LegacyLink = [C("#3D75B5"), C("#83B7F0")];
+
+    internal static bool IsThemeText(Color color) => LegacyText.Contains(color) ||
+        color == For(new NoteAppearance()).Text.Color || color == For(new NoteAppearance { Dark = true }).Text.Color;
+    internal static bool IsThemeLink(Color color) => LegacyLink.Contains(color) ||
+        color == For(new NoteAppearance()).Link.Color || color == For(new NoteAppearance { Dark = true }).Link.Color;
+
     private static readonly Dictionary<(string Palette, bool Dark), NoteTheme> Cache = [];
 
     internal static NoteTheme For(NoteAppearance appearance)
@@ -55,7 +65,7 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
     // 顶栏比正文底色略深（浅色）或略亮（深色），与正文区分。
     private static SolidColorBrush HeaderFor(string surface, bool dark)
     {
-        var color = (Color)ColorConverter.ConvertFromString(surface);
+        var color = C(surface);
         byte Shade(byte value) => dark ? (byte)(value + (255 - value) * 0.07) : (byte)(value * 0.96);
         var brush = new SolidColorBrush(Color.FromRgb(Shade(color.R), Shade(color.G), Shade(color.B)));
         brush.Freeze();
@@ -86,8 +96,10 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
 
     internal static SolidColorBrush B(string value)
     {
-        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));
+        var brush = new SolidColorBrush(C(value));
         brush.Freeze();
         return brush;
     }
+
+    private static Color C(string value) => (Color)ColorConverter.ConvertFromString(value);
 }

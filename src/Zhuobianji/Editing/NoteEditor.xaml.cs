@@ -73,11 +73,7 @@ internal partial class NoteEditor : UserControl
         Rich.Document = FormattedDocuments.Create(Appearance);
         if (data.RichText is not null && Format == NoteFormat.RichText)
         {
-            try
-            {
-                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(data.RichText));
-                new TextRange(Rich.Document.ContentStart, Rich.Document.ContentEnd).Load(stream, DataFormats.Xaml);
-            }
+            try { FormattedDocuments.LoadRich(Rich.Document, data.RichText, Appearance); }
             catch (Exception ex) when (ex is XamlParseException or System.Xml.XmlException or ArgumentException)
             { throw new InvalidDataException("富文本内容无法读取，原文件已保留。", ex); }
         }
@@ -121,7 +117,7 @@ internal partial class NoteEditor : UserControl
     internal NoteData Snapshot(NoteData data) => data with
     {
         Version = 2, Text = text, Format = Format,
-        RichText = Format == NoteFormat.RichText ? FormattedDocuments.Save(Rich.Document, DataFormats.Xaml) : null,
+        RichText = Format == NoteFormat.RichText ? FormattedDocuments.SaveRich(Rich.Document) : null,
         PreviewMarkdown = IsPreview, Appearance = Appearance
     };
 
@@ -187,8 +183,6 @@ internal partial class NoteEditor : UserControl
             if (element.ReadLocalValue(TextElement.FontSizeProperty) is double size) element.FontSize = size * value.FontSize / before.FontSize;
             if (element.ReadLocalValue(TextElement.FontFamilyProperty) is FontFamily family && family.Source == before.FontFamily)
                 element.FontFamily = new FontFamily(value.FontFamily);
-            if (element is Paragraph paragraph && paragraph.Margin == new Thickness(0, 0, 0, 10))
-                paragraph.Margin = new Thickness(0, 0, 0, 3);
         }
         Appearance = value;
         Rich.Document.FontFamily = new FontFamily(value.FontFamily);

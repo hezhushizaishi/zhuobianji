@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Documents;
+using System.Windows.Media;
 
 namespace Zhuobianji;
 
@@ -14,6 +15,16 @@ internal static class DocumentText
     {
         for (var p = document.ContentStart; p is not null && p.CompareTo(document.ContentEnd) < 0; p = p.GetNextContextPosition(LogicalDirection.Forward))
             if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is TextElement element) yield return element;
+    }
+
+    // 代码只看元素自己或上级显式设置的等宽字体；便签字体本身是 Consolas 时，正文不算代码。
+    internal static bool IsCode(TextElement element)
+    {
+        for (DependencyObject? current = element; current is TextElement item; current = item.Parent)
+            if (item.ReadLocalValue(TextElement.FontFamilyProperty) is FontFamily family)
+                return family.Source.Contains("Consolas", StringComparison.OrdinalIgnoreCase) ||
+                    family.Source.Contains("Courier", StringComparison.OrdinalIgnoreCase);
+        return false;
     }
 
     internal static string Markdown(FlowDocument document) => Blocks(document.Blocks, true).TrimEnd('\n');
@@ -31,7 +42,7 @@ internal static class DocumentText
             case Paragraph paragraph:
                 var value = Inlines(paragraph.Inlines, markdown);
                 if (!markdown) return value;
-                if (paragraph.FontFamily.Source.Contains("Consolas", StringComparison.OrdinalIgnoreCase) && paragraph.Background is not null)
+                if (IsCode(paragraph) && paragraph.Background is not null)
                 {
                     var code = Inlines(paragraph.Inlines, false);
                     var fence = new string((char)96, code.Contains(new string((char)96, 3)) ? 4 : 3);
@@ -89,7 +100,7 @@ internal static class DocumentText
             _ => new TextRange(inline.ContentStart, inline.ContentEnd).Text
         };
         if (!markdown || text.Length == 0) return text;
-        if (inline.FontFamily.Source.Contains("Consolas", StringComparison.OrdinalIgnoreCase) && !text.Contains('\n') && (inline.Parent is not TextElement fontParent || !fontParent.FontFamily.Source.Contains("Consolas", StringComparison.OrdinalIgnoreCase)))
+        if (IsCode(inline) && !text.Contains('\n') && (inline.Parent is not TextElement fontParent || !IsCode(fontParent)))
         {
             var tick = new string((char)96, 1);
             return tick + text + tick;

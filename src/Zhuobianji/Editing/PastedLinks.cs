@@ -93,8 +93,7 @@ internal static class PastedLinks
     {
         foreach (var inline in inlines)
         {
-            if (inline is Hyperlink || inline.FontFamily.Source.Contains("Consolas", StringComparison.OrdinalIgnoreCase) ||
-                inline.FontFamily.Source.Contains("Courier", StringComparison.OrdinalIgnoreCase))
+            if (inline is Hyperlink || DocumentText.IsCode(inline))
                 yield return null;
             else if (inline is Run run) yield return run;
             else if (inline is Span span)

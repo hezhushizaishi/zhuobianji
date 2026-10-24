@@ -74,6 +74,47 @@ internal static partial class Program
         Check(restored.TextContent == original.Text && restored.Rich.Document.LineHeight == document.LineHeight &&
             Elements(restored.Rich.Document).OfType<Hyperlink>().Count() == Elements(document).OfType<Hyperlink>().Count(),
             "重开后正文、链接及新的行距恢复");
+
+        // 0.8.x 存下的富文本：根 Section 写着浅色主题的字体、字号、行高和正文色，链接带浅色链接色。
+        var dark = appearance with { Dark = true };
+        var red = Color.FromRgb(0xC9, 0x55, 0x55);
+        var legacyXaml = "<Section xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xml:space=\"preserve\" " +
+            "LineHeight=\"24.65\" FontFamily=\"Microsoft YaHei UI\" FontSize=\"17\" Foreground=\"#FF303C49\"><Paragraph><Run>旧正文</Run>" +
+            "<Run Foreground=\"#FFC95555\">红字</Run><Hyperlink NavigateUri=\"https://example.com/\" Foreground=\"#FF3D75B5\"><Run>链接</Run></Hyperlink></Paragraph></Section>";
+        var legacy = new NoteEditor();
+        legacy.Initialize(new NoteData { Format = NoteFormat.RichText, Text = "旧正文红字链接", RichText = legacyXaml, Appearance = dark });
+        Color Shown(TextElement element) => ((SolidColorBrush)element.Foreground).Color;
+        var legacyRuns = Elements(legacy.Rich.Document).OfType<Run>().ToArray();
+        Check(Shown(legacyRuns[0]) == NoteTheme.For(dark).Text.Color && Shown(legacyRuns[1]) == red &&
+            Shown(Elements(legacy.Rich.Document).OfType<Hyperlink>().Single()) == NoteTheme.For(dark).Link.Color,
+            "旧数据写死的浅色主题色在深色便签里跟随主题，自选颜色保留");
+        legacy.ApplyAppearance(appearance);
+        var stored = legacy.Snapshot(new NoteData()).RichText!;
+        Check(new[] { "303C49", "E4ECF5", "3D75B5", "83B7F0", "FontFamily=", "FontSize=" }.All(value => !stored.Contains(value)) &&
+            stored.Contains("C95555"), "富文本存储不写主题色和便签字体字号，自选颜色照存");
+        var reloaded = new NoteEditor();
+        reloaded.Initialize(new NoteData { Format = NoteFormat.RichText, Text = legacy.TextContent, RichText = stored, Appearance = dark });
+        Check(reloaded.TextContent == legacy.TextContent && Shown(Elements(reloaded.Rich.Document).OfType<Run>().First()) == NoteTheme.For(dark).Text.Color &&
+            Shown(Elements(reloaded.Rich.Document).OfType<Hyperlink>().Single()) == NoteTheme.For(dark).Link.Color,
+            "不带主题值的富文本重开后按当前主题显示正文和链接");
+        var fromDark = new FlowDocument(new Paragraph(new Run("深色便签里复制的字") { Foreground = NoteTheme.For(dark).Text }))
+            { FontFamily = new FontFamily(appearance.FontFamily), FontSize = appearance.FontSize };
+        var pastedAcross = LoadPaste(restored.PreparePaste(new DataObject(DataFormats.Rtf, FormattedDocuments.Save(fromDark, DataFormats.Rtf))));
+        Check(FormattedDocuments.PlainText(pastedAcross) == "深色便签里复制的字" &&
+            Elements(pastedAcross).OfType<Run>().All(run => Shown(run) == NoteTheme.For(appearance).Text.Color),
+            "深色便签的文字粘到浅色便签，改用浅色主题的正文色");
+
+        // 便签字体本身是 Consolas 时，只有显式设成等宽字体的部分才算代码。
+        var mono = new NoteEditor();
+        var monoAppearance = appearance with { FontFamily = "Consolas" };
+        mono.Initialize(new NoteData { Format = NoteFormat.RichText, Text = "等宽正文", Appearance = monoAppearance });
+        var monoLink = LoadPaste(mono.PreparePaste(new DataObject(DataFormats.UnicodeText, "资料 https://example.com/mono 见上")));
+        var monoHtml = LoadPaste(mono.PreparePaste(new DataObject(DataFormats.Html, "<p style='font-size:30px'>网页正文</p>")));
+        Check(Elements(monoLink).OfType<Hyperlink>().Count() == 1 &&
+            Elements(monoHtml).OfType<Paragraph>().All(paragraph => Math.Abs(paragraph.FontSize - monoAppearance.FontSize) < 0.01),
+            "Consolas 字体的便签照常识别粘贴的网址，网页字号照常换成便签字号");
+        Check(DocumentText.Markdown(FormattedDocuments.FromMarkdown("正文 `x`", monoAppearance)) == "正文 `x`",
+            "Consolas 字体的便签导出 Markdown 时只给代码加反引号");
         Check(controller.RequestExit(), "局部排版检查完成并退出");
     }
 }
