@@ -72,8 +72,7 @@ internal static partial class Program
         foreach (var data in expected)
         {
             var window = controller.Notes[data.Id];
-            Check(window.Editor.TextContent == data.Text && window.Left == data.Left && window.Top == data.Top &&
-                window.Width == data.Width && window.Height == data.Height && window.Topmost == data.IsPinned,
+            Check(window.Editor.TextContent == data.Text && SameBounds(window.Snapshot(), data) && window.Topmost == data.IsPinned,
                 "新进程恢复文本、位置尺寸和置顶");
             Check(window.Data.IsHidden == data.IsHidden && window.IsVisible == !data.IsHidden, "新进程保持隐藏状态");
         }

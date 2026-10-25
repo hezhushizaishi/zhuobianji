@@ -146,6 +146,18 @@ internal static partial class Program
         encoder.Save(file);
     }
 
+    // 屏幕实拍：能看到真实的阴影和文字渲染（ClearType）；窗口要在最前、没有遮挡。
+    private static void ScreenShot(Window window, string path)
+    {
+        window.UpdateLayout();
+        var topLeft = window.PointToScreen(new Point(0, 0));
+        var bottomRight = window.PointToScreen(new Point(window.ActualWidth, window.ActualHeight));
+        using var bitmap = new System.Drawing.Bitmap((int)(bottomRight.X - topLeft.X), (int)(bottomRight.Y - topLeft.Y));
+        using (var graphics = System.Drawing.Graphics.FromImage(bitmap))
+            graphics.CopyFromScreen((int)topLeft.X, (int)topLeft.Y, 0, 0, bitmap.Size);
+        bitmap.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+    }
+
     private static bool NativeChild(NoteWindow window)
     {
         var diagnostic = JsonSerializer.SerializeToElement(window.DesktopDiagnostics);

@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using Zhuobianji.Core;
@@ -15,9 +16,11 @@ internal partial class NoteWindow
     private bool moving;
     internal bool IsDirty { get; private set; }
     internal string? SaveError { get; private set; }
+    internal string SaveState { get; private set; } = "";
 
     private void InitializeSaving()
     {
+        ShowSaveState("已保存");
         saveTimer.Tick += (_, _) => { if (!moving) SaveNow(); };
         Editor.ContentChanged += () =>
         {
@@ -57,27 +60,23 @@ internal partial class NoteWindow
         if (permanentlyClosing) return;
         IsDirty = true;
         documentDirty |= documentChanged;
-        if (documentChanged && SaveError is null)
-        {
-            SaveStatus.Content = "保存中";
-            SaveStatus.SetResourceReference(ForegroundProperty, "Muted");
-        }
+        if (documentChanged && SaveError is null) ShowSaveState("保存中");
         saveTimer.Stop();
         if (!moving) saveTimer.Start();
         if (documentChanged) controller.NoteChanged();
     }
 
-    // 当前内容和窗口几何；主便签的坐标与宽度只算正文卡片，不含左侧标签区。
+    // 当前内容和窗口几何；坐标与尺寸只算正文卡片，不含四周的阴影边距和主便签左侧的标签区。
     internal NoteData Snapshot()
     {
         var bounds = desktop.IsAttached ? desktop.ScreenBounds()
             : WindowState == WindowState.Normal || RestoreBounds.IsEmpty ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         return (documentDirty ? Editor.Snapshot(Data) : Data) with
         {
-            Left = bounds.Left + CollectionRailWidth,
-            Top = bounds.Top,
-            Width = bounds.Width - CollectionRailWidth,
-            Height = bounds.Height,
+            Left = bounds.Left + CollectionRailWidth + ShadowMargin,
+            Top = bounds.Top + ShadowMargin,
+            Width = bounds.Width - CollectionRailWidth - 2 * ShadowMargin,
+            Height = bounds.Height - 2 * ShadowMargin,
             IsPinned = desktop.IsAttached ? Data.IsPinned : Topmost,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -98,12 +97,7 @@ internal partial class NoteWindow
         IsDirty = false;
         documentDirty = false;
         SaveError = null;
-        if (reportSaved)
-        {
-            SaveStatus.Content = "已保存";
-            SaveStatus.ToolTip = "保存（Ctrl+S）";
-            SaveStatus.SetResourceReference(ForegroundProperty, "Muted");
-        }
+        if (reportSaved) ShowSaveState("已保存");
         controller.NoteChanged();
         return true;
     }
@@ -111,10 +105,19 @@ internal partial class NoteWindow
     internal void ReportSaveError(string message)
     {
         SaveError = message;
-        SaveStatus.Content = "保存失败 · 点击重试";
-        SaveStatus.ToolTip = message;
-        SaveStatus.SetResourceReference(ForegroundProperty, "Error");
+        ShowSaveState("保存失败 · 点击重试", message);
         controller.NoteChanged();
+    }
+
+    // 平时只有一个很淡的勾，保存中更淡；失败时换成红字，提示里是失败原因。
+    private void ShowSaveState(string state, string? error = null)
+    {
+        SaveState = state;
+        SaveStatus.ToolTip = error ?? state + "（Ctrl+S 立即保存）";
+        AutomationProperties.SetName(SaveStatus, state);
+        SaveIcon.Visibility = error is null ? Visibility.Visible : Visibility.Collapsed;
+        SaveIcon.Opacity = state == "保存中" ? 0.3 : 0.6;
+        SaveErrorText.Visibility = error is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // WM_ENTERSIZEMOVE / WM_EXITSIZEMOVE：拖动或缩放期间不写盘。

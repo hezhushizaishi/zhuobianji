@@ -53,7 +53,7 @@ internal static partial class Program
         main.Activate();
         Keyboard.Focus(main.CollectionRailToggle);
         main.CollectionRailToggle.ApplyTemplate();
-        var toggleBorder = (Border)main.CollectionRailToggle.Template.FindName("ToggleBorder", main.CollectionRailToggle);
+        var toggleBorder = (Border)main.CollectionRailToggle.Template.FindName("Fill", main.CollectionRailToggle);
         Check(main.CollectionRailToggle.IsKeyboardFocused && ((SolidColorBrush)toggleBorder.Background).Color.A > 0,
             "标签开启且按钮有焦点时显示开启底色");
         var handle = new WindowInteropHelper(main).Handle;
@@ -84,7 +84,7 @@ internal static partial class Program
         await Task.Delay(240);
         main.UpdateLayout();
         Check(main.CollectionRail.Visibility == Visibility.Collapsed && main.CollectionRailWidth == 92 &&
-            Math.Abs(main.Width - original.Width - 92) < 1 && SameCard(main.Snapshot(), original) &&
+            Math.Abs(main.Width - original.Width - 92 - 2 * NoteWindow.ShadowMargin) < 1 && SameCard(main.Snapshot(), original) &&
             child.IsVisible && child.Data.CollectedBy == main.Data.Id && main.CollectionRailToggle.IsVisible,
             "关闭标签完全隐藏，透明区域保留，正文和已展开窗口不变");
         var transparentPoint = main.PointToScreen(new Point(30, 140));

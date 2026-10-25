@@ -88,7 +88,7 @@ internal static partial class Program
         Check(rich.IsVisible && markdown.IsVisible && main.Editor.IsVisible, "可同时展开多张，主便签正文不切换");
         markdown.PreviewButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         Check(markdown.Editor.IsPreview && !main.Editor.IsPreview &&
-            Equals(markdown.ModeButton.Content, "Markdown ▾"), "展开的 Markdown 使用自己的工具和预览");
+            markdown.ModeLabel.Text == "Markdown", "展开的 Markdown 使用自己的工具和预览");
         markdown.CloseButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         Check(!markdown.IsVisible && rich.IsVisible && markdown.Data.CollectedBy == main.Data.Id,
             "子便签顶部 × 只收起自己");

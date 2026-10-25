@@ -97,24 +97,6 @@
   </Style.Triggers>
  </Style>
 
- <!-- 主便签顶栏的「标签」开关：悬停只描边，开启时填强调底色。 -->
- <Style x:Key="RailToggle" TargetType="ToggleButton" BasedOn="{StaticResource ToolButton}">
-  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
-   <Border x:Name="ToggleBorder" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="5" Padding="{TemplateBinding Padding}">
-    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-   </Border>
-   <ControlTemplate.Triggers>
-    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ToggleBorder" Property="BorderBrush" Value="{DynamicResource Edge}" /></Trigger>
-    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ToggleBorder" Property="BorderBrush" Value="{DynamicResource Muted}" /></Trigger>
-    <Trigger Property="IsPressed" Value="True"><Setter TargetName="ToggleBorder" Property="Opacity" Value="0.7" /></Trigger>
-    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5" /></Trigger>
-   </ControlTemplate.Triggers>
-  </ControlTemplate></Setter.Value></Setter>
-  <Style.Triggers>
-   <Trigger Property="IsChecked" Value="True"><Setter Property="Background" Value="{DynamicResource Accent}" /></Trigger>
-  </Style.Triggers>
- </Style>
-
  <!-- 左侧标签区的按钮（「＋ 新建」）。 -->
  <Style x:Key="RailButton" TargetType="ButtonBase" BasedOn="{StaticResource ToolButton}">
   <Setter Property="Background" Value="{DynamicResource Surface}" />
@@ -157,17 +139,25 @@
   </Style.Triggers>
  </Style>
 
- <!-- 链接卡片：富文本光标停在链接里时出现在链接下方，显示完整地址和操作。 -->
- <Style x:Key="LinkCard" TargetType="Border">
+ <!-- 便签上弹出的小卡片（链接卡片、文字颜色）：外边距留给阴影，阴影单独一层。 -->
+ <Style x:Key="PopupCard" TargetType="ContentControl">
   <Setter Property="Background" Value="{DynamicResource Surface}" />
+  <Setter Property="Foreground" Value="{DynamicResource Text}" />
   <Setter Property="BorderBrush" Value="{DynamicResource Edge}" />
-  <Setter Property="BorderThickness" Value="1" />
-  <Setter Property="CornerRadius" Value="8" />
-  <Setter Property="Padding" Value="12,8,12,6" />
-  <Setter Property="Margin" Value="0,0,10,10" />
-  <Setter Property="MinWidth" Value="200" />
-  <Setter Property="MaxWidth" Value="340" />
-  <Setter Property="Effect"><Setter.Value><DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.18" /></Setter.Value></Setter>
+  <Setter Property="Padding" Value="6" />
+  <Setter Property="Focusable" Value="False" />
+  <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
+  <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ContentControl">
+   <Grid Margin="6,4,6,8">
+    <Border Background="{TemplateBinding Background}" CornerRadius="8">
+     <Border.Effect><DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Opacity="0.16" /></Border.Effect>
+    </Border>
+    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+     <ContentPresenter />
+    </Border>
+   </Grid>
+  </ControlTemplate></Setter.Value></Setter>
  </Style>
 
  <Style x:Key="LinkCardAddress" TargetType="TextBlock">
@@ -185,6 +175,119 @@
   <Setter Property="Focusable" Value="False" />
  </Style>
 
+ <!-- 便签窗口：卡片阴影画在背后单独一层，外层缓存成位图，打字时不重算。 -->
+ <Style x:Key="CardShadow" TargetType="Border">
+  <Setter Property="Background" Value="{DynamicResource Surface}" />
+  <Setter Property="CornerRadius" Value="10" />
+  <Setter Property="IsHitTestVisible" Value="False" />
+  <Setter Property="Effect"><Setter.Value><DropShadowEffect BlurRadius="14" ShadowDepth="2" Direction="270" Opacity="0.14" /></Setter.Value></Setter>
+ </Style>
+
+ <!-- 顶栏上的小标签（「主便签」）。 -->
+ <Style x:Key="Tag" TargetType="Border">
+  <Setter Property="Background" Value="{DynamicResource Selected}" />
+  <Setter Property="CornerRadius" Value="4" />
+  <Setter Property="Padding" Value="6,1,6,2" />
+  <Setter Property="HorizontalAlignment" Value="Left" />
+  <Setter Property="VerticalAlignment" Value="Center" />
+  <Setter Property="TextElement.FontSize" Value="11" />
+  <Setter Property="TextElement.Foreground" Value="{DynamicResource Muted}" />
+ </Style>
+
+ <!-- 排版栏：底栏上方一条浅底托盘，按「字形 | 列表 | 颜色」分组。 -->
+ <Style x:Key="FormatTray" TargetType="Border">
+  <Setter Property="Background" Value="{DynamicResource Subtle}" />
+  <Setter Property="CornerRadius" Value="8" />
+  <Setter Property="Padding" Value="2" />
+  <Setter Property="Margin" Value="10,0,10,2" />
+ </Style>
+
+ <Style x:Key="ToolSeparator" TargetType="Border">
+  <Setter Property="Width" Value="1" />
+  <Setter Property="Height" Value="16" />
+  <Setter Property="Margin" Value="4,0" />
+  <Setter Property="VerticalAlignment" Value="Center" />
+  <Setter Property="Background" Value="{DynamicResource Edge}" />
+ </Style>
+
+ <!-- 文字颜色色块：当前颜色外圈实线，悬停淡圈。 -->
+ <Style x:Key="Swatch" TargetType="ToggleButton">
+  <Setter Property="Width" Value="28" />
+  <Setter Property="Height" Value="28" />
+  <Setter Property="Cursor" Value="Hand" />
+  <Setter Property="Focusable" Value="False" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
+   <Grid Background="Transparent">
+    <Ellipse x:Name="Ring" Margin="1" Stroke="{DynamicResource Text}" StrokeThickness="1.5" Opacity="0" />
+    <Ellipse Margin="5" Fill="{TemplateBinding Background}" />
+   </Grid>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Ring" Property="Opacity" Value="0.35" /></Trigger>
+    <Trigger Property="IsChecked" Value="True"><Setter TargetName="Ring" Property="Opacity" Value="1" /></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <!-- 右下角缩放角：两道淡色斜线，深浅色都不抢眼。 -->
+ <Style TargetType="ResizeGrip">
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ResizeGrip">
+   <Grid Background="Transparent">
+    <Path Data="M 10,2 L 2,10 M 10,6 L 6,10" Stroke="{DynamicResource Muted}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+     Opacity="0.55" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2" />
+   </Grid>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <!-- 细滚动条：没有箭头，滑块平时细而淡，悬停时加宽加深。 -->
+ <Style x:Key="ScrollPage" TargetType="RepeatButton">
+  <Setter Property="Focusable" Value="False" />
+  <Setter Property="IsTabStop" Value="False" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <Style x:Key="ScrollThumb" TargetType="Thumb">
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Thumb">
+   <Border x:Name="Bar" Background="{DynamicResource Muted}" CornerRadius="3" Opacity="0.35" />
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bar" Property="Opacity" Value="0.6" /></Trigger>
+    <Trigger Property="IsDragging" Value="True"><Setter TargetName="Bar" Property="Opacity" Value="0.75" /></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <Style TargetType="ScrollBar">
+  <Setter Property="Width" Value="10" />
+  <Setter Property="MinWidth" Value="10" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">
+   <Track x:Name="PART_Track" IsDirectionReversed="True" Margin="3,2">
+    <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageUpCommand" /></Track.DecreaseRepeatButton>
+    <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageDownCommand" /></Track.IncreaseRepeatButton>
+    <Track.Thumb><Thumb Style="{StaticResource ScrollThumb}" /></Track.Thumb>
+   </Track>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="PART_Track" Property="Margin" Value="2" /></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+  <Style.Triggers>
+   <Trigger Property="Orientation" Value="Horizontal">
+    <Setter Property="Width" Value="Auto" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Height" Value="10" />
+    <Setter Property="MinHeight" Value="10" />
+    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">
+     <Track x:Name="PART_Track" Margin="2,3">
+      <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageLeftCommand" /></Track.DecreaseRepeatButton>
+      <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageRightCommand" /></Track.IncreaseRepeatButton>
+      <Track.Thumb><Thumb Style="{StaticResource ScrollThumb}" /></Track.Thumb>
+     </Track>
+     <ControlTemplate.Triggers>
+      <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="PART_Track" Property="Margin" Value="2" /></Trigger>
+     </ControlTemplate.Triggers>
+    </ControlTemplate></Setter.Value></Setter>
+   </Trigger>
+  </Style.Triggers>
+ </Style>
+
  <!-- 菜单和提示：底色跟随便签，圆角 8 / 6，阴影单独一层，不让文字走特效渲染。 -->
  <Style TargetType="ContextMenu">
   <Setter Property="Background" Value="{DynamicResource Surface}" />
@@ -192,6 +295,7 @@
   <Setter Property="BorderBrush" Value="{DynamicResource Edge}" />
   <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
   <Setter Property="FontSize" Value="12" />
+  <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
   <Setter Property="MinWidth" Value="168" />
   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ContextMenu">
    <Grid Margin="6">
@@ -244,6 +348,7 @@
   <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
   <Setter Property="FontSize" Value="12" />
   <Setter Property="Padding" Value="8,5" />
+  <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
   <Setter Property="MaxWidth" Value="372" />
   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip">
    <Grid Margin="6">

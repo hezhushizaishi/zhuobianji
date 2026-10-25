@@ -7,6 +7,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Zhuobianji.Core;
+using SymbolRegular = Wpf.Ui.Controls.SymbolRegular;
 
 namespace Zhuobianji;
 
@@ -74,19 +75,19 @@ internal partial class NoteEditor
         link.ToolTip = preview ? NoteLinks.Tooltip(uri) : NoteLinks.Readable(uri) + "\nCtrl+单击" + OpenText(uri);
         link.Cursor = preview ? Cursors.Hand : Cursors.IBeam;
         var menu = new ContextMenu();
-        var open = new MenuItem { Header = OpenText(uri) };
+        var open = new MenuItem { Header = OpenText(uri), Icon = MenuIcon(uri.IsFile ? SymbolRegular.FolderOpen20 : SymbolRegular.Open20) };
         open.Click += (_, _) => { if (link.NavigateUri is Uri target) LinkOpener(target); };
         menu.Items.Add(open);
         if (Window.GetWindow(this) is not null)
         {
-            var edit = new MenuItem { Header = "修改链接" };
+            var edit = new MenuItem { Header = "修改链接", Icon = MenuIcon(SymbolRegular.LinkEdit20) };
             edit.Click += (_, _) => EditLink(link, replace);
             menu.Items.Add(edit);
-            var cancel = new MenuItem { Header = "取消链接" };
+            var cancel = new MenuItem { Header = "取消链接", Icon = MenuIcon(SymbolRegular.LinkDismiss20) };
             cancel.Click += (_, _) => Unlink(link, remove);
             menu.Items.Add(cancel);
         }
-        var copy = new MenuItem { Header = "复制地址" };
+        var copy = new MenuItem { Header = "复制地址", Icon = MenuIcon(SymbolRegular.Copy20) };
         copy.Click += (_, _) => { if (link.NavigateUri is Uri target) CopyAddress(target); };
         menu.Items.Add(copy);
         link.ContextMenu = menu;

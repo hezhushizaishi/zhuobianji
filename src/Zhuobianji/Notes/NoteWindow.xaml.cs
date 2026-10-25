@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Controls.Primitives;
@@ -11,6 +12,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
+using SymbolRegular = Wpf.Ui.Controls.SymbolRegular;
 using Zhuobianji.Core;
 
 namespace Zhuobianji;
@@ -21,6 +23,9 @@ internal partial class NoteWindow : Window
     private readonly DesktopHost desktop;
     private bool permanentlyClosing;
     private bool deleteConfirmationOpen;
+    // 正文卡片四周留给阴影的透明边距，与 NoteWindow.xaml 里 Frame 的 Margin 一致；保存的位置尺寸只算卡片。
+    internal const double ShadowMargin = 12;
+    private const double MinCardWidth = 320, MinCardHeight = 260;
     internal NoteData Data { get; private set; }
     internal bool IsDesktopAttached => desktop.IsAttached;
     internal object DesktopDiagnostics => desktop.Diagnostics();
@@ -32,11 +37,12 @@ internal partial class NoteWindow : Window
         desktop = new DesktopHost(this);
         Data = data;
         collectionRailWidth = data.IsCollectionMain ? RailWidth : 0;
-        MinWidth = 320 + CollectionRailWidth;
-        Width = Math.Max(MinWidth, data.Width + CollectionRailWidth);
-        Height = Math.Max(MinHeight, data.Height);
-        Left = data.Left - CollectionRailWidth;
-        Top = data.Top;
+        MinWidth = MinCardWidth + CollectionRailWidth + 2 * ShadowMargin;
+        MinHeight = MinCardHeight + 2 * ShadowMargin;
+        Width = Math.Max(MinWidth, data.Width + CollectionRailWidth + 2 * ShadowMargin);
+        Height = Math.Max(MinHeight, data.Height + 2 * ShadowMargin);
+        Left = data.Left - CollectionRailWidth - ShadowMargin;
+        Top = data.Top - ShadowMargin;
         KeepReachable();
         Topmost = data.IsPinned;
         Editor.Initialize(data);
@@ -46,6 +52,7 @@ internal partial class NoteWindow : Window
         UpdatePinnedButton();
         InitializeSaving();
         PreviewKeyDown += OnKeyboard;
+        Editor.Rich.SelectionChanged += (_, _) => { if (FormatBar.IsVisible) UpdateColorBar(); };
     }
 
     private void KeepReachable()
@@ -97,9 +104,11 @@ internal partial class NoteWindow : Window
 
     private void UpdatePinnedButton()
     {
-        PinButton.Content = desktop.IsAttached ? "桌面" : Topmost ? "已置顶" : "置顶";
+        PinIcon.Symbol = desktop.IsAttached ? SymbolRegular.Desktop20 : SymbolRegular.Pin20;
+        PinIcon.Filled = Topmost && !desktop.IsAttached;
         PinButton.IsEnabled = !desktop.IsAttached;
-        PinButton.ToolTip = desktop.IsAttached ? "桌面模式下不置顶；从更多操作切回浮窗后可置顶。" : "切换置顶（Ctrl+Shift+T）";
+        PinButton.ToolTip = desktop.IsAttached ? "桌面模式下不置顶；从更多操作切回浮窗后可置顶。"
+            : Topmost ? "取消置顶（Ctrl+Shift+T）" : "置顶（Ctrl+Shift+T）";
         PinButton.IsChecked = desktop.IsAttached || Topmost;
         DesktopMenuItem.IsEnabled = !desktop.IsAttached;
         FloatingMenuItem.IsEnabled = desktop.IsAttached || Data.IsOnDesktop;
@@ -180,7 +189,17 @@ internal partial class NoteWindow : Window
     }
     private void OnSave(object sender, RoutedEventArgs e) => SaveNow();
     private void OnExit(object sender, RoutedEventArgs e) => controller.RequestExit();
-    private void OnFormatBar(object sender, RoutedEventArgs e) => FormatBar.Visibility = FormatBar.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+    private void OnFormatBar(object sender, RoutedEventArgs e) => SetFormatBar(FormatBar.Visibility != Visibility.Visible);
+
+    private void SetFormatBar(bool visible)
+    {
+        FormatButton.IsChecked = visible;
+        if (visible == (FormatBar.Visibility == Visibility.Visible)) return;
+        FormatBar.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (!visible) return;
+        UpdateColorBar();
+        NoteTheme.Reveal(FormatBar, rise: 6);
+    }
     private void OnStrike(object sender, RoutedEventArgs e) => Editor.ToggleStrike();
     private void OnSource(object sender, RoutedEventArgs e) => SetMarkdownPreview(false);
     private void OnPreview(object sender, RoutedEventArgs e) => SetMarkdownPreview(true);
@@ -197,13 +216,13 @@ internal partial class NoteWindow : Window
         var editor = Editor;
         var markdown = editor.Format == NoteFormat.Markdown;
         var rich = editor.Format == NoteFormat.RichText;
-        ModeButton.Content = editor.Format switch { NoteFormat.RichText => "富文本 ▾", NoteFormat.Markdown => "Markdown ▾", _ => "纯文本 ▾" };
+        ModeLabel.Text = editor.Format switch { NoteFormat.RichText => "富文本", NoteFormat.Markdown => "Markdown", _ => "纯文本" };
         RichFormatItem.IsChecked = editor.Format == NoteFormat.RichText;
         MarkdownFormatItem.IsChecked = editor.Format == NoteFormat.Markdown;
         PlainFormatItem.IsChecked = editor.Format == NoteFormat.PlainText;
         FormatButton.Visibility = rich ? Visibility.Visible : Visibility.Collapsed;
         LinkButton.Visibility = rich || markdown ? Visibility.Visible : Visibility.Collapsed;
-        if (!rich) FormatBar.Visibility = Visibility.Collapsed;
+        if (!rich) SetFormatBar(false);
         MarkdownButtons.Visibility = markdown ? Visibility.Visible : Visibility.Collapsed;
         SourceButton.IsChecked = !editor.IsPreview;
         PreviewButton.IsChecked = editor.IsPreview;
@@ -220,15 +239,23 @@ internal partial class NoteWindow : Window
 
     private void OnTextColor(object sender, RoutedEventArgs e)
     {
-        var menu = new ContextMenu { PlacementTarget = ColorButton, Placement = PlacementMode.Top };
+        var current = SelectionColor();
+        ColorSwatches.Children.Clear();
         foreach (var (name, color) in NoteTheme.TextColors.Prepend(("默认文字", NoteTheme.For(Data.Appearance).Text)))
         {
-            var item = new MenuItem { Header = name, Foreground = color };
-            item.Click += (_, _) => Editor.SetTextColor(color);
-            menu.Items.Add(item);
+            var swatch = new ToggleButton { Style = (Style)FindResource("Swatch"), Background = color, ToolTip = name, IsChecked = color.Color == current.Color };
+            AutomationProperties.SetName(swatch, name);
+            swatch.Click += (_, _) => { ColorPopup.IsOpen = false; Editor.SetTextColor(color); UpdateColorBar(); };
+            ColorSwatches.Children.Add(swatch);
         }
-        menu.IsOpen = true;
+        ColorPopup.IsOpen = true;
     }
+
+    // 颜色按钮下方的色条显示选中文字的颜色；选区里颜色不一致时按默认文字色。
+    private void UpdateColorBar() => ColorBar.Background = SelectionColor();
+
+    private SolidColorBrush SelectionColor() =>
+        Editor.Rich.Selection.GetPropertyValue(TextElement.ForegroundProperty) as SolidColorBrush ?? NoteTheme.For(Data.Appearance).Text;
 
     private void OnLink(object sender, RoutedEventArgs e)
     {

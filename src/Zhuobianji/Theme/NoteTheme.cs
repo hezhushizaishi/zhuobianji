@@ -37,6 +37,17 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
     public static readonly Duration Standard = new(TimeSpan.FromMilliseconds(Animate ? 180 : 0));
     public static readonly IEasingFunction Ease = Frozen(new CubicEase { EasingMode = EasingMode.EaseOut });
 
+    // 出现：淡入，同时从下方 rise 处升到原位（标准时长）。
+    internal static void Reveal(UIElement element, double rise = 0)
+    {
+        if (!Animate) return;
+        element.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, Standard) { EasingFunction = Ease });
+        if (rise == 0) return;
+        var shift = new TranslateTransform();
+        element.RenderTransform = shift;
+        shift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(rise, 0, Standard) { EasingFunction = Ease });
+    }
+
     // 正文排版：行高按字号倍数，段落与列表只留很小的段后距。
     internal const double LineHeightFactor = 1.45;
     internal const double ParagraphSpacing = 3;

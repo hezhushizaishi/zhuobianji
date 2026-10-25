@@ -47,22 +47,22 @@ internal static partial class Program
                     opacity == 0 ? "全透明实际透出后方窗口，未变黑" : opacity == 1 ? "不透明正常显示便签" : "半透明实际混合后方窗口与便签");
             }
             var before = store.LoadAll().Notes.Single();
-            var savedLabel = note.SaveStatus.Content;
+            var savedLabel = note.SaveState;
             var handle = new WindowInteropHelper(note).Handle;
             SendMessage(handle, 0x0231, 0, 0);
             note.Left += 40; note.Top += 30; note.Width += 12;
             await Task.Delay(550);
-            Check(store.LoadAll().Notes.Single().Left == before.Left && Equals(note.SaveStatus.Content, savedLabel),
+            Check(store.LoadAll().Notes.Single().Left == before.Left && note.SaveState == savedLabel,
                 "拖动期间不写位置，不闪保存提示");
             SendMessage(handle, 0x0232, 0, 0);
             await Task.Delay(550);
             var after = store.LoadAll().Notes.Single();
-            Check(after.Left == note.Left && after.Top == note.Top && after.Width == note.Width && after.RichText == before.RichText,
+            Check(SameBounds(after, note.Snapshot()) && after.RichText == before.RichText,
                 "松开后保存位置尺寸，富文本原样保留");
             note.Editor.TextContent = "修改后的正文";
-            Check((string)note.SaveStatus.Content == "保存中", "正文修改仍显示保存状态");
+            Check(note.SaveState == "保存中", "正文修改仍显示保存状态");
             await Task.Delay(550);
-            Check(store.LoadAll().Notes.Single().Text == "修改后的正文" && (string)note.SaveStatus.Content == "已保存",
+            Check(store.LoadAll().Notes.Single().Text == "修改后的正文" && note.SaveState == "已保存",
                 "正文仍自动保存并恢复已保存提示");
             Check(controller.SetDesktopMode(note, true, showErrors: false) && note.IsDesktopAttached, "透明窗口可切换到桌面");
             note.ApplyAppearance(note.Data.Appearance with { Opacity = 0.5 });

@@ -141,7 +141,7 @@ internal static partial class Program
         const string raw = "**保持原文**\n下一行\n";
         plain.Editor.InsertPlain(raw);
         Check(plain.Editor.TextContent == raw && plain.Editor.Source.IsVisible && !plain.Editor.Rich.IsVisible &&
-            !plain.Editor.IsPreview && (string)plain.ModeButton.Content == "纯文本 ▾", "纯文本保留符号与换行，不自动转换 Markdown");
+            !plain.Editor.IsPreview && plain.ModeLabel.Text == "纯文本", "纯文本保留符号与换行，不自动转换 Markdown");
         var converted = controller.CreateNote();
         converted.Editor.InsertLink(folderUri, "资料");
         converted.ChangeNoteFormat(NoteFormat.PlainText);

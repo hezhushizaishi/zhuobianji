@@ -27,7 +27,7 @@ internal static partial class Program
                 "全部隐藏后重启至少显示最近一张，其他隐藏便签不被全部展开");
             Check(ForegroundWindow() == new WindowInteropHelper(note).Handle && !note.Topmost && !note.Data.IsPinned,
                 "普通便签启动到前台，原非置顶偏好保持");
-            Check(note.Editor.TextContent == latest.Text && note.Left == latest.Left && note.Top == latest.Top,
+            Check(note.Editor.TextContent == latest.Text && note.Snapshot().Left == latest.Left && note.Snapshot().Top == latest.Top,
                 "启动显示修正保留原内容和窗口位置");
             var settings = controller.ShowSettings(note);
             Check(settings.DataPath.Text == Path.GetFullPath(directory), "设置直接显示实际数据目录");

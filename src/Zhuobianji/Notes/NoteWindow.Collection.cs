@@ -27,7 +27,7 @@ internal partial class NoteWindow
         var previousWidth = Width;
         var previousLeft = Left;
         collectionRailWidth = width;
-        MinWidth = 320 + width;
+        MinWidth = MinCardWidth + width + 2 * ShadowMargin;
         Width = previousWidth + difference;
         Left = previousLeft - difference;
         RailColumn.Width = new GridLength(width);
@@ -86,7 +86,7 @@ internal partial class NoteWindow
             ? Visibility.Visible : Visibility.Collapsed;
         CollectItem.Visibility = !Data.IsCollectionMain && Data.CollectedBy is null && main is not null
             ? Visibility.Visible : Visibility.Collapsed;
-        HeaderLabel.Text = Data.IsCollectionMain ? "主便签" : "桌边记";
+        MainTag.Visibility = Data.IsCollectionMain ? Visibility.Visible : Visibility.Collapsed;
         CloseButton.ToolTip = Data.IsCollectionMain ? "关闭主便签（Ctrl+W）"
             : Data.CollectedBy is not null ? "收起便签（Ctrl+W）" : "关闭便签（Ctrl+W）";
         DeleteButton.ToolTip = Data.IsCollectionMain ? "删除主便签，收纳的便签会释放到桌面" : "删除便签";

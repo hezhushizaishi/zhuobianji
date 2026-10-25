@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -80,14 +81,76 @@ internal static partial class Program
             PreviewScene("links.png", 956, 444, (rich, 40, 32), (markdown, 496, 32));
             controller.RequestExit();
         }
-        Console.WriteLine("已生成 collection.png、formats.png、links.png；未使用正式 Data。");
+        // 细节图：排版栏、文字颜色、更多菜单、深色便签，以及一张屏幕实拍（真实阴影和文字渲染）。
+        using (var store = new NoteStore(Path.Combine(root, "details", "Data")))
+        using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
+        {
+            controller.Start();
+            var rich = controller.Notes.Values.Single();
+            PreviewSize(rich, 360, 330, "cream");
+            rich.Editor.Rich.Document = FormattedDocuments.FromHtml(
+                "<h2>细节</h2><p>选中文字，再点下面的图标。</p><ul><li><b>粗体</b>、<i>斜体</i>、<u>下划线</u></li><li><span style='color:#C95555'>换个颜色</span></li></ul>", rich.Data.Appearance);
+            rich.FormatButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            var dark = controller.CreateNote(format: NoteFormat.Markdown);
+            dark.Width = 360 + 2 * NoteWindow.ShadowMargin;
+            dark.Height = 330 + 2 * NoteWindow.ShadowMargin;
+            dark.ApplyAppearance(new NoteAppearance { Palette = "mist", Dark = true });
+            dark.Editor.TextContent = "# 深色便签\n\n晚上写字不刺眼。\n\n- 顶栏和底栏都是图标\n- 悬停才变实";
+            dark.SetMarkdownPreview(true);
+            await PreviewReady(controller);
+            PreviewScene("details.png", 820, 394, (rich, 32, 32), (dark, 428, 32));
+
+            rich.Editor.Rich.Selection.Select(rich.Editor.Rich.Document.ContentStart, rich.Editor.Rich.Document.ContentStart);
+            rich.ColorButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            await Task.Delay(300);
+            PreviewPart("colors.png", (FrameworkElement)rich.ColorPopup.Child);
+            rich.ColorPopup.IsOpen = false;
+            var menu = rich.MoreButton.ContextMenu;
+            menu.PlacementTarget = rich.MoreButton;
+            menu.IsOpen = true;
+            await Task.Delay(300);
+            PreviewPart("menu.png", menu);
+            menu.IsOpen = false;
+
+            var backdrop = new Window { Left = rich.Left - 40, Top = rich.Top - 40, Width = rich.Width + 80, Height = rich.Height + 80,
+                Topmost = true, WindowStyle = WindowStyle.None, ShowInTaskbar = false, Background = NoteTheme.B("#E7ECEE") };
+            backdrop.Show();
+            rich.Topmost = true;
+            rich.Activate();
+            await Task.Delay(300);
+            ScreenShot(rich, Path.Combine(root, "screen-note.png"));
+
+            backdrop.Close();
+            controller.RequestExit();
+        }
+        Console.WriteLine("已生成 collection.png、formats.png、links.png 和细节图；未使用正式 Data。");
     }
 
+    // 便签窗口四周有阴影边距：这里的宽高和场景坐标都按正文卡片算。
     private static void PreviewSize(NoteWindow window, double width, double height, string palette)
     {
-        window.Width = width;
-        window.Height = height;
+        window.Width = width + 2 * NoteWindow.ShadowMargin;
+        window.Height = height + 2 * NoteWindow.ShadowMargin;
         window.ApplyAppearance(new NoteAppearance { Palette = palette });
+    }
+
+    private static void PreviewPart(string name, FrameworkElement part)
+    {
+        part.UpdateLayout();
+        var image = new RenderTargetBitmap((int)Math.Ceiling(part.ActualWidth * 2), (int)Math.Ceiling(part.ActualHeight * 2), 192, 192, PixelFormats.Pbgra32);
+        var scene = new DrawingVisual();
+        using (var drawing = scene.RenderOpen())
+        {
+            drawing.DrawRectangle(NoteTheme.B("#E7ECEE"), null, new Rect(0, 0, part.ActualWidth, part.ActualHeight));
+            var captured = new RenderTargetBitmap(image.PixelWidth, image.PixelHeight, 192, 192, PixelFormats.Pbgra32);
+            captured.Render(part);
+            drawing.DrawImage(captured, new Rect(0, 0, part.ActualWidth, part.ActualHeight));
+        }
+        image.Render(scene);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(image));
+        using var file = File.Create(Path.Combine(root, name));
+        encoder.Save(file);
     }
 
     private static async Task PreviewReady(NoteController controller)
@@ -110,7 +173,7 @@ internal static partial class Program
                 var captured = new RenderTargetBitmap((int)Math.Ceiling(content.ActualWidth * 2),
                     (int)Math.Ceiling(content.ActualHeight * 2), 192, 192, PixelFormats.Pbgra32);
                 captured.Render(content);
-                drawing.DrawImage(captured, new Rect(x, y, content.ActualWidth, content.ActualHeight));
+                drawing.DrawImage(captured, new Rect(x - NoteWindow.ShadowMargin, y - NoteWindow.ShadowMargin, content.ActualWidth, content.ActualHeight));
             }
         }
         var image = new RenderTargetBitmap(width * 2, height * 2, 192, 192, PixelFormats.Pbgra32);

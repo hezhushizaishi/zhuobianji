@@ -12,8 +12,8 @@
    IsToolBarVisible="False" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
    AutomationProperties.Name="Markdown 预览" />
   <TextBlock x:Name="Hint" Text="写点什么…" IsHitTestVisible="False" />
-  <Popup x:Name="LinkCard" Placement="Bottom" VerticalOffset="4" AllowsTransparency="True" StaysOpen="True" Focusable="False">
-   <Border Style="{DynamicResource LinkCard}">
+  <Popup x:Name="LinkCard" Placement="Bottom" HorizontalOffset="-6" AllowsTransparency="True" StaysOpen="True" Focusable="False">
+   <ContentControl Style="{DynamicResource PopupCard}" Padding="12,8,12,6" MinWidth="212" MaxWidth="352">
     <StackPanel>
      <TextBlock x:Name="LinkCardAddress" Style="{DynamicResource LinkCardAddress}" />
      <StackPanel Orientation="Horizontal" Margin="-6,4,0,0">
@@ -23,7 +23,7 @@
       <Button x:Name="LinkCardUnlink" Style="{DynamicResource CardButton}" Content="取消链接" Click="OnCardUnlink" />
      </StackPanel>
     </StackPanel>
-   </Border>
+   </ContentControl>
   </Popup>
  </Grid>
 </UserControl>

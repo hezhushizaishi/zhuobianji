@@ -10,6 +10,8 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Navigation;
 using Zhuobianji.Core;
+using SymbolIcon = Wpf.Ui.Controls.SymbolIcon;
+using SymbolRegular = Wpf.Ui.Controls.SymbolRegular;
 
 namespace Zhuobianji;
 
@@ -60,17 +62,19 @@ internal partial class NoteEditor : UserControl
             else if (e.Key == Key.Escape && LinkCard.IsOpen) { HideLinkCard(); e.Handled = true; }
         };
         var menu = new ContextMenu();
-        menu.Items.Add(new MenuItem { Header = "剪切", Command = ApplicationCommands.Cut });
-        menu.Items.Add(new MenuItem { Header = "复制", Command = ApplicationCommands.Copy });
-        menu.Items.Add(new MenuItem { Header = "粘贴（自动识别）", Command = ApplicationCommands.Paste });
-        var markdown = new MenuItem { Header = "按 Markdown 粘贴" };
+        menu.Items.Add(new MenuItem { Header = "剪切", Command = ApplicationCommands.Cut, Icon = MenuIcon(SymbolRegular.Cut20) });
+        menu.Items.Add(new MenuItem { Header = "复制", Command = ApplicationCommands.Copy, Icon = MenuIcon(SymbolRegular.Copy20) });
+        menu.Items.Add(new MenuItem { Header = "粘贴（自动识别）", Command = ApplicationCommands.Paste, Icon = MenuIcon(SymbolRegular.ClipboardPaste20) });
+        var markdown = new MenuItem { Header = "按 Markdown 粘贴", Icon = MenuIcon(SymbolRegular.Markdown20) };
         markdown.Click += (_, _) => PasteMarkdown();
         menu.Items.Add(markdown);
-        var plain = new MenuItem { Header = "按原文粘贴", InputGestureText = "Ctrl+Shift+V" };
+        var plain = new MenuItem { Header = "按原文粘贴", InputGestureText = "Ctrl+Shift+V", Icon = MenuIcon(SymbolRegular.TextT20) };
         plain.Click += (_, _) => PastePlain();
         menu.Items.Add(plain);
         Rich.ContextMenu = menu;
     }
+
+    private static SymbolIcon MenuIcon(SymbolRegular symbol) => new() { Symbol = symbol };
 
     internal void Initialize(NoteData data)
     {
