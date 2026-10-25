@@ -319,13 +319,22 @@ internal static class FormattedDocuments
     // 便签存储用的富文本不带主题值，换主题、改主题色后旧内容照样跟随。
     internal static string SaveRich(FlowDocument document) => WithoutTheme(Save(document, DataFormats.Xaml));
 
-    internal static void LoadRich(FlowDocument document, string xaml, NoteAppearance appearance)
+    // 返回 true 表示改了正文文字（旧的自动链接名称换成了现在的写法）。
+    internal static bool LoadRich(FlowDocument document, string xaml, NoteAppearance appearance)
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(WithoutTheme(xaml)));
         new TextRange(document.ContentStart, document.ContentEnd).Load(stream, DataFormats.Xaml);
+        var renamed = false;
         foreach (var link in DocumentText.Elements(document).OfType<Hyperlink>())
+        {
             if (link.ReadLocalValue(TextElement.ForegroundProperty) == DependencyProperty.UnsetValue)
                 link.Foreground = NoteTheme.For(appearance).Link;
+            // 0.8.x 给裸网址起的名字只有域名，同一网站的链接分不清；用户自己起的名字不动。
+            if (link.NavigateUri is { Scheme: "http" or "https" } uri && link.Inlines.Count == 1 && link.Inlines.FirstInline is Run run &&
+                run.Text == uri.IdnHost && NoteLinks.ShortName(uri) is var name && name != run.Text)
+            { run.Text = name; renamed = true; }
+        }
+        return renamed;
     }
 
     // TextRange.Save 把文档的字体、字号、行高和正文色写在根 Section 上，读取时会变成每段的本地值；

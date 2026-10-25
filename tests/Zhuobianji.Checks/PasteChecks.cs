@@ -108,9 +108,9 @@ internal static partial class Program
             "从文件恢复粘贴结果及完整目标");
         Capture(rich, Path.Combine(root, "automatic-rich-paste.png"));
         var richLink = Elements(rich.Editor.Rich.Document).OfType<Hyperlink>().Single();
-        Check(((string)richLink.ToolTip).StartsWith("打开文件夹") &&
+        Check(((string)richLink.ToolTip).EndsWith("Ctrl+单击打开文件夹") &&
             richLink.ContextMenu.Items.OfType<MenuItem>().Any(item => (string)item.Header == "取消链接"),
-            "悬停说明打开文件夹，右键可取消链接");
+            "悬停说明 Ctrl+单击打开文件夹，右键可取消链接");
         richLink.ContextMenu.Items.OfType<MenuItem>().Single(item => (string)item.Header == "取消链接")
             .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
         Check(rich.Editor.TextContent == savedRich.Text && !Elements(rich.Editor.Rich.Document).OfType<Hyperlink>().Any(),

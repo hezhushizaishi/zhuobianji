@@ -28,15 +28,22 @@ internal partial class NoteEditor : UserControl
     {
         InitializeComponent();
         Rich.TextChanged += (_, _) => Changed();
-        Loaded += (_, _) => { configuredLinks.Clear(); RefreshLinks(); if (IsPreview) RefreshPreview(); };
+        Loaded += (_, _) => { configuredLinks.Clear(); RefreshLinks(); if (IsPreview) RefreshPreview(); WatchCardOwner(); };
         Source.TextChanged += (_, _) => Changed();
         DataObject.AddPastingHandler(Rich, OnPasting);
         DataObject.AddPastingHandler(Source, OnPasting);
+        DataObject.AddCopyingHandler(Rich, OnCopying);
+        DataObject.AddCopyingHandler(Preview, OnCopying);
+        // 富文本可编辑，WPF 只在 Ctrl+单击时触发链接；普通单击放光标，由链接卡片提供打开、复制等操作。
         RequestNavigateEventHandler navigate = (_, e) => { LinkOpener(e.Uri); e.Handled = true; };
         Rich.AddHandler(Hyperlink.RequestNavigateEvent, navigate);
         Preview.AddHandler(Hyperlink.RequestNavigateEvent, navigate);
-        Rich.PreviewMouseLeftButtonDown += OnLinkMouseDown;
-        Rich.PreviewMouseLeftButtonUp += OnLinkMouseUp;
+        LinkCard.PlacementTarget = Rich;
+        Rich.SelectionChanged += (_, _) => { if (!loading) QueueLinkCard(); };
+        Rich.LostKeyboardFocus += (_, _) => QueueLinkCard();
+        Rich.SizeChanged += (_, _) => { if (LinkCard.IsOpen) QueueLinkCard(); };
+        Rich.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((_, _) => { if (LinkCard.IsOpen) QueueLinkCard(); }));
+        IsVisibleChanged += (_, _) => { if (!IsVisible) HideLinkCard(); };
         Rich.AllowDrop = true;
         Rich.PreviewDragOver += (_, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effects = DragDropEffects.Copy; e.Handled = true; } };
         Rich.PreviewDrop += (_, e) =>
@@ -50,6 +57,7 @@ internal partial class NoteEditor : UserControl
         {
             if (e.Key == Key.V && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
             { PastePlain(); e.Handled = true; }
+            else if (e.Key == Key.Escape && LinkCard.IsOpen) { HideLinkCard(); e.Handled = true; }
         };
         var menu = new ContextMenu();
         menu.Items.Add(new MenuItem { Header = "剪切", Command = ApplicationCommands.Cut });
@@ -73,7 +81,7 @@ internal partial class NoteEditor : UserControl
         Rich.Document = FormattedDocuments.Create(Appearance);
         if (data.RichText is not null && Format == NoteFormat.RichText)
         {
-            try { FormattedDocuments.LoadRich(Rich.Document, data.RichText, Appearance); }
+            try { if (FormattedDocuments.LoadRich(Rich.Document, data.RichText, Appearance)) text = FormattedDocuments.PlainText(Rich.Document); }
             catch (Exception ex) when (ex is XamlParseException or System.Xml.XmlException or ArgumentException)
             { throw new InvalidDataException("富文本内容无法读取，原文件已保留。", ex); }
         }

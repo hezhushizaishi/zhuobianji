@@ -28,8 +28,8 @@ internal static partial class Program
             NoteLinks.LaunchInfo(folderUri).FileName == folder &&
             NoteLinks.LaunchInfo(folderUri).UseShellExecute, "文件夹交给系统打开，目标路径完整保留");
         var webUri = new Uri("https://example.com/a/long?name=中文");
-        Check(NoteLinks.ShortName(webUri) == "example.com" && NoteLinks.LaunchInfo(webUri).FileName == webUri.AbsoluteUri,
-            "网页显示域名，仍将完整网址交给默认浏览器");
+        Check(NoteLinks.ShortName(webUri) == "example.com/a/long?name=中文" && NoteLinks.LaunchInfo(webUri).FileName == webUri.AbsoluteUri,
+            "网页显示域名和路径，仍将完整网址交给默认浏览器");
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
@@ -45,18 +45,44 @@ internal static partial class Program
             "插入短名称链接，正文不堆长路径");
         Check(rich.Editor.TextContent == "项目资料\n参考网页", "连续插入内容保留换行，粘贴后光标移到末尾");
         Check(links[0].ContextMenu.Items.OfType<MenuItem>().Any(item => (string)item.Header == "修改链接") &&
-            (string)links[0].ToolTip == NoteLinks.Tooltip(folderUri), "链接右键可修改或复制地址，悬停显示完整路径");
+            (string)links[0].ToolTip == folder + "\nCtrl+单击打开文件夹", "链接右键可修改或复制地址，悬停显示完整路径和 Ctrl+单击");
         var opened = 0;
         Uri? openedUri = null;
         rich.Editor.LinkOpener = uri => { opened++; openedUri = uri; };
-        var down = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
-            { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent, Source = links[0] };
-        var up = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
-            { RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent, Source = links[0] };
-        rich.Editor.Rich.RaiseEvent(down);
-        rich.Editor.Rich.RaiseEvent(up);
-        Check(opened == 1 && openedUri == folderUri && down.Handled && up.Handled,
-            "实际鼠标事件单击链接只打开一次，不需要 Ctrl");
+        foreach (var routed in new[] { UIElement.PreviewMouseLeftButtonDownEvent, UIElement.MouseLeftButtonDownEvent,
+            UIElement.PreviewMouseLeftButtonUpEvent, UIElement.MouseLeftButtonUpEvent })
+            links[0].RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = routed });
+        Check(opened == 0, "不按 Ctrl 单击链接只放光标，不会打开");
+
+        // 光标进入链接时出现卡片：完整地址、打开、复制、修改、取消；离开链接收起。
+        rich.Activate();
+        rich.Editor.Rich.Focus();
+        var insideWeb = links[1].ContentStart.GetPositionAtOffset(2)!;
+        rich.Editor.Rich.Selection.Select(insideWeb, insideWeb);
+        await Task.Delay(150);
+        Check(rich.Editor.LinkCard.IsOpen && rich.Editor.LinkCardAddress.Text == "https://example.com/a/long?name=中文" &&
+            (string)rich.Editor.LinkCardOpen.Content == "打开", "光标停在链接里，下方卡片显示可读的完整地址和操作");
+        Capture(rich, Path.Combine(root, "link-card-note.png"));
+        if (rich.Editor.LinkCard.Child is FrameworkElement card) SavePng(card, Path.Combine(root, "link-card.png"));
+        var clipboardBefore = Clipboard.GetDataObject();
+        try
+        {
+            rich.Editor.LinkCardCopy.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            Check(Clipboard.GetText() == webUri.AbsoluteUri && (string)rich.Editor.LinkCardCopy.Content == "已复制",
+                "卡片一键复制完整地址");
+        }
+        finally { if (clipboardBefore is not null) Clipboard.SetDataObject(clipboardBefore, true); }
+        rich.Editor.LinkCardOpen.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Check(opened == 1 && openedUri == webUri && !rich.Editor.LinkCard.IsOpen, "卡片打开链接后收起");
+        var insideFolder = links[0].ContentStart.GetPositionAtOffset(2)!;
+        rich.Editor.Rich.Selection.Select(insideFolder, insideFolder);
+        await Task.Delay(150);
+        Check(rich.Editor.LinkCard.IsOpen && rich.Editor.LinkCardAddress.Text == folder &&
+            (string)rich.Editor.LinkCardOpen.Content == "打开文件夹" && (string)rich.Editor.LinkCardCopy.Content == "复制地址",
+            "光标换到另一个链接，卡片跟着换成它的地址");
+        rich.Editor.Rich.CaretPosition = links[1].ElementEnd;
+        await Task.Delay(150);
+        Check(!rich.Editor.LinkCard.IsOpen, "光标离开链接，卡片收起");
         rich.Editor.InsertPlain("\n普通正文");
         Check(rich.SaveNow() && store.LoadAll().Notes.Single().RichText is not null, "带编辑菜单的链接仍正常序列化保存");
         Capture(rich, Path.Combine(root, "short-links.png"));
@@ -75,7 +101,7 @@ internal static partial class Program
         Check(Elements(pastedPath).OfType<Hyperlink>().Single().NavigateUri == folderUri &&
             FormattedDocuments.PlainText(pastedPath) == "本地资料 有空格", "粘贴本地路径自动成为短名称链接");
         var pastedWeb = LoadPaste(rich.Editor.PreparePaste(new DataObject(DataFormats.UnicodeText, webUri.AbsoluteUri)));
-        Check(FormattedDocuments.PlainText(pastedWeb) == "example.com", "粘贴裸网址自动显示域名");
+        Check(FormattedDocuments.PlainText(pastedWeb) == "example.com/a/long?name=中文", "粘贴裸网址自动显示域名和路径");
         var fileMd = LoadPaste(rich.Editor.PreparePaste(new DataObject(DataFormats.UnicodeText, DocumentText.MarkdownLink("资料", folderUri))));
         Check(Elements(fileMd).OfType<Hyperlink>().Single().NavigateUri == folderUri, "粘贴只有本地链接的 Markdown 也能识别");
         var pastedMd = LoadPaste(rich.Editor.PreparePaste(new DataObject(DataFormats.UnicodeText, "# 标题\n\n**重点**\n\n- 第一项")));

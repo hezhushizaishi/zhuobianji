@@ -15,7 +15,7 @@
   <ui:TitleBar Title="链接" ShowMaximize="False" ShowMinimize="False" />
   <StackPanel Grid.Row="1" Margin="24,12,24,24">
    <ui:TextBlock Text="名称" Margin="0,0,0,8" />
-   <TextBox x:Name="NameBox" MinHeight="34" VerticalContentAlignment="Center" Margin="0,0,0,16" ToolTip="留空时使用文件名、文件夹名或域名。" />
+   <TextBox x:Name="NameBox" MinHeight="34" VerticalContentAlignment="Center" Margin="0,0,0,16" ToolTip="留空时使用文件名、文件夹名，或网址的域名和路径。" />
    <ui:TextBlock Text="地址" Margin="0,0,0,8" />
    <TextBox x:Name="AddressBox" MinHeight="34" VerticalContentAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,10" />
    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">

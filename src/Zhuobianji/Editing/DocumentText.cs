@@ -89,9 +89,7 @@ internal static class DocumentText
         {
             var label = new TextRange(link.ContentStart, link.ContentEnd).Text;
             if (link.NavigateUri is not Uri uri) return markdown ? Escape(label) : label;
-            if (markdown) return MarkdownLink(label, uri);
-            var address = NoteLinks.Address(uri);
-            return label == address || label == uri.AbsoluteUri ? address : label + " (" + address + ")";
+            return markdown ? MarkdownLink(label, uri) : NoteLinks.PlainText(label, uri);
         }
         var text = inline switch
         {
