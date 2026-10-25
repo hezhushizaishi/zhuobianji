@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Markup;
 using Zhuobianji.Core;
@@ -23,6 +25,17 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
     internal static readonly SolidColorBrush Danger = B("#D64B45");
     internal static readonly SolidColorBrush Error = B("#B22222");
     internal static readonly SolidColorBrush Highlight = B("#F1DC83");
+
+    // 按钮的悬停底和选中底由正文色加透明度得到，任何配色、深浅色下都只是略深（略亮）一层。
+    internal SolidColorBrush Subtle { get; } = Tint(Text, 0x12);
+    internal SolidColorBrush Selected { get; } = Tint(Text, 0x20);
+
+    // 界面动画：快（悬停、淡入）、标准（展开、滑出），一律减速收尾，只动透明度和位移。
+    // 系统关闭「窗口内的动画」时时长为 0，动画直接到终点。样式里用 x:Static 引用，所以是 public。
+    public static readonly bool Animate = SystemParameters.ClientAreaAnimation;
+    public static readonly Duration Fast = new(TimeSpan.FromMilliseconds(Animate ? 120 : 0));
+    public static readonly Duration Standard = new(TimeSpan.FromMilliseconds(Animate ? 180 : 0));
+    public static readonly IEasingFunction Ease = Frozen(new CubicEase { EasingMode = EasingMode.EaseOut });
 
     // 正文排版：行高按字号倍数，段落与列表只留很小的段后距。
     internal const double LineHeightFactor = 1.45;
@@ -80,6 +93,8 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
         resources["Muted"] = Muted;
         resources["Edge"] = Border;
         resources["Accent"] = Accent;
+        resources["Subtle"] = Subtle;
+        resources["Selected"] = Selected;
         resources["Danger"] = Danger;
         resources["Error"] = Error;
     }
@@ -99,6 +114,18 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
         var brush = new SolidColorBrush(C(value));
         brush.Freeze();
         return brush;
+    }
+
+    private static SolidColorBrush Tint(SolidColorBrush brush, byte alpha)
+    {
+        var color = brush.Color;
+        return Frozen(new SolidColorBrush(Color.FromArgb(alpha, color.R, color.G, color.B)));
+    }
+
+    private static T Frozen<T>(T value) where T : Freezable
+    {
+        value.Freeze();
+        return value;
     }
 
     private static Color C(string value) => (Color)ColorConverter.ConvertFromString(value);
