@@ -182,7 +182,8 @@ internal static partial class Program
     {
         foreach (var window in controller.Notes.Values) window.SaveNow();
         Keyboard.ClearFocus();
-        await Task.Delay(250);
+        // 等标签抽出、窗口淡入等动画播完；窗口多时动画起步会晚一些。
+        await Task.Delay(600);
         foreach (var window in controller.Notes.Values.Where(window => window.IsVisible)) window.UpdateLayout();
     }
 

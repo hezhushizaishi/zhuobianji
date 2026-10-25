@@ -62,11 +62,11 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
         shift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(rise, 0, Standard) { EasingFunction = Ease });
     }
 
-    // 可滚动区域的边缘渐隐：上面或下面还有内容时，那一侧 18px 淡出。都没有时不加遮罩。
+    // 可滚动区域的边缘渐隐：上面或下面还有内容时，那一侧 24px 淡出。都没有时不加遮罩。
     internal static Brush? FadeMask(double height, bool top, bool bottom)
     {
-        if (!top && !bottom || height <= 36) return null;
-        var edge = 18 / height;
+        if (!top && !bottom || height <= 48) return null;
+        var edge = 24 / height;
         var stops = new GradientStopCollection
         {
             new(top ? Colors.Transparent : Colors.Black, 0), new(Colors.Black, top ? edge : 0),
