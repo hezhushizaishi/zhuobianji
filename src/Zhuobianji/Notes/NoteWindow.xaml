@@ -41,53 +41,62 @@
      <Button x:Name="CollectionNewButton" Grid.Row="1" Style="{StaticResource RailButton}" Content="＋ 新建" ToolTip="新建收纳便签" Click="OnNewCollected" Margin="0,6,0,0" />
     </Grid>
    </Grid>
-   <!-- 卡片阴影：外层缓存成位图，正文变化时不重画阴影。 -->
-   <Border Grid.Column="1" CacheMode="BitmapCache" IsHitTestVisible="False"><Border Style="{StaticResource CardShadow}" /></Border>
+   <!-- 卡片阴影：贴边的短阴影加外圈的柔和阴影，外层缓存成位图，正文变化时不重画阴影。 -->
+   <Grid Grid.Column="1" CacheMode="BitmapCache" IsHitTestVisible="False">
+    <Border Style="{StaticResource CardShadow}" />
+    <Border Style="{StaticResource CardContact}" />
+   </Grid>
    <Border x:Name="NoteCard" Grid.Column="1" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Edge}" BorderThickness="1" CornerRadius="10" RenderOptions.ClearTypeHint="Enabled">
     <Grid>
      <Grid.RowDefinitions>
       <RowDefinition Height="42" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" MinHeight="36" />
      </Grid.RowDefinitions>
-     <Border x:Name="HeaderBand" Background="{DynamicResource Header}" CornerRadius="9,9,0,0" TextOptions.TextFormattingMode="Display">
-      <DockPanel Margin="16,0,7,0">
-       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-        <ToggleButton x:Name="CollectionRailToggle" Style="{StaticResource IconToggle}" Click="OnToggleRail" Visibility="Collapsed" AutomationProperties.Name="左侧标签">
-         <ui:SymbolIcon Symbol="PanelLeft20" />
-        </ToggleButton>
-        <Button Style="{StaticResource IconButton}" Margin="2,0,0,0" ToolTip="新建便签（Ctrl+N）" AutomationProperties.Name="新建便签" Click="OnNewNote">
-         <ui:SymbolIcon Symbol="Add20" />
-        </Button>
-        <ToggleButton x:Name="PinButton" Style="{StaticResource IconToggle}" Margin="2,0,0,0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="置顶" Click="OnTogglePinned">
-         <ui:SymbolIcon x:Name="PinIcon" Symbol="Pin20" />
-        </ToggleButton>
-        <Button x:Name="MoreButton" Style="{StaticResource IconButton}" Margin="2,0,0,0" ToolTip="更多操作" AutomationProperties.Name="更多操作" Click="OnMore">
-         <ui:SymbolIcon Symbol="MoreHorizontal20" />
-         <Button.ContextMenu><ContextMenu>
-          <MenuItem Header="新建富文本便签" Click="OnNewRich"><MenuItem.Icon><ui:SymbolIcon Symbol="DocumentText20" /></MenuItem.Icon></MenuItem>
-          <MenuItem Header="新建 Markdown 便签" Click="OnNewMarkdown"><MenuItem.Icon><ui:SymbolIcon Symbol="Markdown20" /></MenuItem.Icon></MenuItem>
-          <MenuItem Header="新建纯文本便签" Click="OnNewPlain"><MenuItem.Icon><ui:SymbolIcon Symbol="TextT20" /></MenuItem.Icon></MenuItem>
-          <Separator />
-          <MenuItem Header="设置…" Click="OnAppearance"><MenuItem.Icon><ui:SymbolIcon Symbol="Settings20" /></MenuItem.Icon></MenuItem>
-          <MenuItem x:Name="SetMainItem" Header="设为主便签" Click="OnSetMain"><MenuItem.Icon><ui:SymbolIcon Symbol="PanelLeft20" /></MenuItem.Icon></MenuItem>
-          <MenuItem x:Name="CollectItem" Header="收纳到主便签" Click="OnCollect" Visibility="Collapsed"><MenuItem.Icon><ui:SymbolIcon Symbol="Archive20" /></MenuItem.Icon></MenuItem>
-          <MenuItem x:Name="DesktopMenuItem" Header="贴到桌面" Click="OnDesktop"><MenuItem.Icon><ui:SymbolIcon Symbol="Desktop20" /></MenuItem.Icon></MenuItem>
-          <MenuItem x:Name="FloatingMenuItem" Header="恢复普通浮窗" Click="OnFloating"><MenuItem.Icon><ui:SymbolIcon Symbol="Window20" /></MenuItem.Icon></MenuItem>
-          <Separator />
-          <MenuItem Header="显示所有便签" Click="OnShowAll"><MenuItem.Icon><ui:SymbolIcon Symbol="WindowMultiple20" /></MenuItem.Icon></MenuItem>
-          <MenuItem Header="关闭这张便签" InputGestureText="Ctrl+W" Click="OnHide"><MenuItem.Icon><ui:SymbolIcon Symbol="Dismiss20" /></MenuItem.Icon></MenuItem>
-          <MenuItem Header="删除这张便签" Click="OnDelete"><MenuItem.Icon><ui:SymbolIcon Style="{StaticResource DeleteIcon}" /></MenuItem.Icon></MenuItem>
-          <Separator />
-          <MenuItem Header="退出程序" InputGestureText="Ctrl+Shift+Q" Click="OnExit"><MenuItem.Icon><ui:SymbolIcon Symbol="Power20" /></MenuItem.Icon></MenuItem>
-         </ContextMenu></Button.ContextMenu>
-        </Button>
-        <Button x:Name="CloseButton" Style="{StaticResource IconButton}" Margin="2,0,0,0" ToolTip="关闭便签（Ctrl+W）" AutomationProperties.Name="关闭便签" Click="OnHide">
-         <ui:SymbolIcon Symbol="Dismiss20" />
-        </Button>
-       </StackPanel>
+     <!-- 顶栏上浅下深，上沿一道亮线、下沿一道暗线，往正文上投一点阴影。 -->
+     <Border x:Name="HeaderBand" Background="{DynamicResource HeaderFill}" BorderBrush="{DynamicResource Bevel}" BorderThickness="0,1,0,1" CornerRadius="9,9,0,0" TextOptions.TextFormattingMode="Display">
+      <DockPanel Margin="14,0,6,0">
+       <ContentControl DockPanel.Dock="Right" Style="{StaticResource KeyTray}">
+        <StackPanel Orientation="Horizontal">
+         <ToggleButton x:Name="CollectionRailToggle" Style="{StaticResource IconToggle}" Click="OnToggleRail" Visibility="Collapsed" AutomationProperties.Name="左侧标签">
+          <ui:SymbolIcon Symbol="PanelLeft20" />
+         </ToggleButton>
+         <Border Style="{StaticResource ToolSeparator}" Visibility="{Binding Visibility, ElementName=CollectionRailToggle}" />
+         <Button Style="{StaticResource IconButton}" ToolTip="新建便签（Ctrl+N）" AutomationProperties.Name="新建便签" Click="OnNewNote">
+          <ui:SymbolIcon Symbol="Add20" />
+         </Button>
+         <ToggleButton x:Name="PinButton" Style="{StaticResource IconToggle}" Margin="2,0,0,0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="置顶" Click="OnTogglePinned">
+          <ui:SymbolIcon x:Name="PinIcon" Symbol="Pin20" />
+         </ToggleButton>
+         <Button x:Name="MoreButton" Style="{StaticResource IconButton}" Margin="2,0,0,0" ToolTip="更多操作" AutomationProperties.Name="更多操作" Click="OnMore">
+          <ui:SymbolIcon Symbol="MoreHorizontal20" />
+          <Button.ContextMenu><ContextMenu>
+           <MenuItem Header="新建富文本便签" Click="OnNewRich"><MenuItem.Icon><ui:SymbolIcon Symbol="DocumentText20" /></MenuItem.Icon></MenuItem>
+           <MenuItem Header="新建 Markdown 便签" Click="OnNewMarkdown"><MenuItem.Icon><ui:SymbolIcon Symbol="Markdown20" /></MenuItem.Icon></MenuItem>
+           <MenuItem Header="新建纯文本便签" Click="OnNewPlain"><MenuItem.Icon><ui:SymbolIcon Symbol="TextT20" /></MenuItem.Icon></MenuItem>
+           <Separator />
+           <MenuItem Header="设置…" Click="OnAppearance"><MenuItem.Icon><ui:SymbolIcon Symbol="Settings20" /></MenuItem.Icon></MenuItem>
+           <MenuItem x:Name="SetMainItem" Header="设为主便签" Click="OnSetMain"><MenuItem.Icon><ui:SymbolIcon Symbol="PanelLeft20" /></MenuItem.Icon></MenuItem>
+           <MenuItem x:Name="CollectItem" Header="收纳到主便签" Click="OnCollect" Visibility="Collapsed"><MenuItem.Icon><ui:SymbolIcon Symbol="Archive20" /></MenuItem.Icon></MenuItem>
+           <MenuItem x:Name="DesktopMenuItem" Header="贴到桌面" Click="OnDesktop"><MenuItem.Icon><ui:SymbolIcon Symbol="Desktop20" /></MenuItem.Icon></MenuItem>
+           <MenuItem x:Name="FloatingMenuItem" Header="恢复普通浮窗" Click="OnFloating"><MenuItem.Icon><ui:SymbolIcon Symbol="Window20" /></MenuItem.Icon></MenuItem>
+           <Separator />
+           <MenuItem Header="显示所有便签" Click="OnShowAll"><MenuItem.Icon><ui:SymbolIcon Symbol="WindowMultiple20" /></MenuItem.Icon></MenuItem>
+           <MenuItem Header="关闭这张便签" InputGestureText="Ctrl+W" Click="OnHide"><MenuItem.Icon><ui:SymbolIcon Symbol="Dismiss20" /></MenuItem.Icon></MenuItem>
+           <MenuItem Header="删除这张便签" Click="OnDelete"><MenuItem.Icon><ui:SymbolIcon Style="{StaticResource DeleteIcon}" /></MenuItem.Icon></MenuItem>
+           <Separator />
+           <MenuItem Header="退出程序" InputGestureText="Ctrl+Shift+Q" Click="OnExit"><MenuItem.Icon><ui:SymbolIcon Symbol="Power20" /></MenuItem.Icon></MenuItem>
+          </ContextMenu></Button.ContextMenu>
+         </Button>
+         <Border Style="{StaticResource ToolSeparator}" />
+         <Button x:Name="CloseButton" Style="{StaticResource DangerIconButton}" ToolTip="关闭便签（Ctrl+W）" AutomationProperties.Name="关闭便签" Click="OnHide">
+          <ui:SymbolIcon Symbol="Dismiss20" />
+         </Button>
+        </StackPanel>
+       </ContentControl>
        <!-- 普通便签顶栏不写标题，只当拖动区；主便签显示一个小标签。 -->
        <Border x:Name="MainTag" Style="{StaticResource Tag}" Visibility="Collapsed"><TextBlock Text="主便签" /></Border>
       </DockPanel>
      </Border>
+     <Border Grid.Row="1" Height="6" VerticalAlignment="Top" Background="{DynamicResource HeaderShade}" IsHitTestVisible="False" />
      <local:NoteEditor x:Name="OwnEditor" Grid.Row="1" Margin="22,10,14,8" />
      <Border x:Name="FormatBar" Grid.Row="2" Style="{StaticResource FormatTray}" Visibility="Collapsed" TextOptions.TextFormattingMode="Display">
       <WrapPanel>
@@ -110,7 +119,7 @@
      </Border>
      <DockPanel Grid.Row="3" Margin="10,2,4,4" TextOptions.TextFormattingMode="Display">
       <ResizeGrip DockPanel.Dock="Right" Width="14" Height="14" VerticalAlignment="Bottom" shell:WindowChrome.ResizeGripDirection="BottomRight" />
-      <Button x:Name="DeleteButton" DockPanel.Dock="Right" Style="{StaticResource DeleteToolButton}" ToolTip="删除便签" AutomationProperties.Name="删除便签" Click="OnDelete">
+      <Button x:Name="DeleteButton" DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" ToolTip="删除便签" AutomationProperties.Name="删除便签" Click="OnDelete">
        <ui:SymbolIcon Style="{StaticResource DeleteIcon}" />
       </Button>
       <!-- 保存状态：平时一个很淡的勾，保存中更淡，失败时显示红字；状态文字在提示里。 -->
@@ -121,7 +130,7 @@
        </Grid>
       </Button>
       <WrapPanel VerticalAlignment="Center">
-       <Button x:Name="ModeButton" Style="{StaticResource ToolButton}" Padding="8,0,6,0" ToolTip="切换编辑格式" Click="OnFormatMenu">
+       <Button x:Name="ModeButton" Style="{StaticResource KeyButton}" Height="26" Padding="9,0,6,0" Margin="0,0,4,0" ToolTip="切换编辑格式" Click="OnFormatMenu">
         <StackPanel Orientation="Horizontal">
          <TextBlock x:Name="ModeLabel" Text="富文本" VerticalAlignment="Center" />
          <ui:SymbolIcon Symbol="ChevronDown20" FontSize="12" Margin="4,1,0,0" Foreground="{DynamicResource Muted}" />

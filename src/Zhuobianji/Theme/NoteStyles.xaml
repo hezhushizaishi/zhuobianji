@@ -4,14 +4,17 @@
  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
  xmlns:local="clr-namespace:Zhuobianji"
  xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework">
- <!-- 便签窗口的控件样式。颜色只引用 NoteTheme.ApplyTo 写入的资源键：
-      Surface Header Text Muted Edge Accent Subtle Selected Danger Error。 -->
+ <!-- 便签窗口、弹窗和托盘菜单的控件样式。颜色只引用 NoteTheme.ApplyTo 写入的资源键：
+      Surface Header HeaderFill HeaderShade Text Muted Edge Accent Subtle Selected
+      Shine Shade Raised Glow Inset Bevel Groove Etch Danger OnDanger Error。 -->
  <ResourceDictionary.MergedDictionaries>
   <ResourceDictionary Source="pack://application:,,,/Wpf.Ui;component/Resources/Fonts.xaml" />
  </ResourceDictionary.MergedDictionaries>
 
  <!-- 规范：图标 16px（20 号字形）；按钮高 28、圆角 6，卡片和弹窗圆角 8，便签 10；间距取 4 / 8 / 12 / 16；
-      说明文字 11 号，按钮和菜单 12 号。悬停底色淡入淡出（NoteTheme.Fast），键盘焦点画一圈描边。 -->
+      说明文字 11 号，按钮和菜单 12 号。键盘焦点画一圈描边。
+      立体感：光从上方来。凸起的东西上沿亮、下沿一道暗边（Raised + Bevel + 下方 1px Shade），
+      凹进去的上沿暗（Inset + Groove）。图标按钮平时是平的，悬停浮起（NoteTheme.Fast 淡入），按下和开启时凹进去。 -->
  <Style x:Key="Icon" TargetType="ui:SymbolIcon">
   <Setter Property="FontFamily" Value="{StaticResource FluentSystemIcons}" />
   <Setter Property="FontSize" Value="16" />
@@ -24,9 +27,11 @@
   </ControlTemplate></Setter.Value></Setter>
  </Style>
 
- <!-- 文字按钮（「富文本 ▾」、链接卡片上的操作）；其他按钮样式都基于它。 -->
+ <!-- 文字按钮（链接卡片上的操作、保存状态）；图标按钮基于它。平时是平的，悬停浮起一枚键面，按下凹进去。
+      开关（ToggleButton）开启时保持凹进去的样子，底色画在 Fill 上。 -->
  <Style x:Key="ToolButton" TargetType="ButtonBase">
   <Setter Property="Background" Value="Transparent" />
+  <Setter Property="BorderBrush" Value="Transparent" />
   <Setter Property="Foreground" Value="{DynamicResource Text}" />
   <Setter Property="BorderThickness" Value="0" />
   <Setter Property="Height" Value="28" />
@@ -39,33 +44,41 @@
   <Setter Property="Template">
    <Setter.Value><ControlTemplate TargetType="ButtonBase">
     <Grid Background="Transparent">
-     <Border x:Name="Fill" Background="{TemplateBinding Background}" CornerRadius="6" />
-     <Border x:Name="Hover" Background="{DynamicResource Subtle}" CornerRadius="6" Opacity="0" />
-     <Border x:Name="Press" Background="{DynamicResource Subtle}" CornerRadius="6" Opacity="0" />
-     <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+     <Grid x:Name="Raise" Opacity="0">
+      <Border Background="{DynamicResource Shade}" CornerRadius="6" Margin="0,1,0,-1" />
+      <Border Background="{DynamicResource Raised}" BorderBrush="{DynamicResource Shine}" BorderThickness="0,1,0,0" CornerRadius="6" />
+     </Grid>
+     <Border x:Name="Fill" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="0,1,0,0" CornerRadius="6" />
+     <Border x:Name="Press" Background="{DynamicResource Inset}" BorderBrush="{DynamicResource Shade}" BorderThickness="0,1,0,0" CornerRadius="6" Opacity="0" />
+     <ContentPresenter x:Name="Content" Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
     </Grid>
     <ControlTemplate.Triggers>
      <Trigger Property="IsMouseOver" Value="True">
       <Trigger.EnterActions><BeginStoryboard><Storyboard>
-       <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+       <DoubleAnimation Storyboard.TargetName="Raise" Storyboard.TargetProperty="Opacity" To="1" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
       </Storyboard></BeginStoryboard></Trigger.EnterActions>
       <Trigger.ExitActions><BeginStoryboard><Storyboard FillBehavior="Stop">
-       <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+       <DoubleAnimation Storyboard.TargetName="Raise" Storyboard.TargetProperty="Opacity" To="0" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
       </Storyboard></BeginStoryboard></Trigger.ExitActions>
      </Trigger>
-     <Trigger Property="IsPressed" Value="True"><Setter TargetName="Press" Property="Opacity" Value="1" /></Trigger>
+     <Trigger Property="ToggleButton.IsChecked" Value="True">
+      <Setter TargetName="Raise" Property="Visibility" Value="Hidden" />
+      <Setter TargetName="Fill" Property="Background" Value="{DynamicResource Inset}" />
+      <Setter TargetName="Fill" Property="BorderBrush" Value="{DynamicResource Shade}" />
+      <Setter TargetName="Content" Property="RenderTransform"><Setter.Value><TranslateTransform Y="1" /></Setter.Value></Setter>
+     </Trigger>
+     <Trigger Property="IsPressed" Value="True">
+      <Setter TargetName="Raise" Property="Visibility" Value="Hidden" />
+      <Setter TargetName="Press" Property="Opacity" Value="1" />
+      <Setter TargetName="Content" Property="RenderTransform"><Setter.Value><TranslateTransform Y="1" /></Setter.Value></Setter>
+     </Trigger>
      <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
     </ControlTemplate.Triggers>
    </ControlTemplate></Setter.Value>
   </Setter>
  </Style>
 
- <!-- 开关型文字按钮：开启时保持选中底色。 -->
- <Style x:Key="ToolToggle" TargetType="ToggleButton" BasedOn="{StaticResource ToolButton}">
-  <Style.Triggers>
-   <Trigger Property="IsChecked" Value="True"><Setter Property="Background" Value="{DynamicResource Selected}" /></Trigger>
-  </Style.Triggers>
- </Style>
+ <Style x:Key="ToolToggle" TargetType="ToggleButton" BasedOn="{StaticResource ToolButton}" />
 
  <!-- 图标按钮：28×28，平时淡色，悬停变实。 -->
  <Style x:Key="IconButton" TargetType="ButtonBase" BasedOn="{StaticResource ToolButton}">
@@ -77,13 +90,10 @@
   </Style.Triggers>
  </Style>
 
- <!-- 开关型图标按钮（置顶、标签、排版、源码 / 预览）：开启时选中底色、图标变实。 -->
+ <!-- 开关型图标按钮（置顶、标签、排版、源码 / 预览）：开启时凹进去、图标变实。 -->
  <Style x:Key="IconToggle" TargetType="ToggleButton" BasedOn="{StaticResource IconButton}">
   <Style.Triggers>
-   <Trigger Property="IsChecked" Value="True">
-    <Setter Property="Background" Value="{DynamicResource Selected}" />
-    <Setter Property="Foreground" Value="{DynamicResource Text}" />
-   </Trigger>
+   <Trigger Property="IsChecked" Value="True"><Setter Property="Foreground" Value="{DynamicResource Text}" /></Trigger>
   </Style.Triggers>
  </Style>
 
@@ -91,10 +101,69 @@
   <Setter Property="Symbol" Value="Delete20" />
  </Style>
 
- <Style x:Key="DeleteToolButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+ <!-- 关闭、删除：悬停变红。 -->
+ <Style x:Key="DangerIconButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
   <Style.Triggers>
    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource Danger}" /></Trigger>
   </Style.Triggers>
+ </Style>
+
+ <!-- 凸起的按键（「富文本 ⌄」、弹窗按钮）：平时就是浮起的键面，悬停提亮，按下凹进去。 -->
+ <Style x:Key="KeyButton" TargetType="ButtonBase" BasedOn="{StaticResource ToolButton}">
+  <Setter Property="Background" Value="{DynamicResource Raised}" />
+  <Setter Property="BorderBrush" Value="{DynamicResource Bevel}" />
+  <Setter Property="Padding" Value="12,0" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ButtonBase">
+   <Grid Background="Transparent">
+    <Border x:Name="Lip" Background="{DynamicResource Shade}" CornerRadius="6" Margin="0,1,0,-1" />
+    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="6" />
+    <Border x:Name="Hover" Background="{DynamicResource Glow}" CornerRadius="6" Opacity="0" />
+    <Border x:Name="Press" Background="{DynamicResource Inset}" BorderBrush="{DynamicResource Shade}" BorderThickness="0,1,0,0" CornerRadius="6" Opacity="0" />
+    <ContentPresenter x:Name="Content" Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+   </Grid>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsMouseOver" Value="True">
+     <Trigger.EnterActions><BeginStoryboard><Storyboard>
+      <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+     </Storyboard></BeginStoryboard></Trigger.EnterActions>
+     <Trigger.ExitActions><BeginStoryboard><Storyboard FillBehavior="Stop">
+      <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+     </Storyboard></BeginStoryboard></Trigger.ExitActions>
+    </Trigger>
+    <Trigger Property="IsPressed" Value="True">
+     <Setter TargetName="Lip" Property="Visibility" Value="Hidden" />
+     <Setter TargetName="Press" Property="Opacity" Value="1" />
+     <Setter TargetName="Content" Property="RenderTransform"><Setter.Value><TranslateTransform Y="1" /></Setter.Value></Setter>
+    </Trigger>
+    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <!-- 弹窗里的确认按钮：墨色实底；危险操作红底。 -->
+ <Style x:Key="PrimaryButton" TargetType="ButtonBase" BasedOn="{StaticResource KeyButton}">
+  <Setter Property="Background" Value="{DynamicResource Text}" />
+  <Setter Property="Foreground" Value="{DynamicResource Surface}" />
+ </Style>
+
+ <Style x:Key="DangerButton" TargetType="ButtonBase" BasedOn="{StaticResource KeyButton}">
+  <Setter Property="Background" Value="{DynamicResource Danger}" />
+  <Setter Property="Foreground" Value="{DynamicResource OnDanger}" />
+ </Style>
+
+ <!-- 凸起的按键托：顶栏右侧那组按钮、底栏的格式按钮放在里面。 -->
+ <Style x:Key="KeyTray" TargetType="ContentControl">
+  <Setter Property="Focusable" Value="False" />
+  <Setter Property="Padding" Value="2" />
+  <Setter Property="VerticalAlignment" Value="Center" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ContentControl">
+   <Grid>
+    <Border Background="{DynamicResource Shade}" CornerRadius="8" Margin="0,1,0,-1" />
+    <Border Background="{DynamicResource Raised}" BorderBrush="{DynamicResource Bevel}" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+     <ContentPresenter />
+    </Border>
+   </Grid>
+  </ControlTemplate></Setter.Value></Setter>
  </Style>
 
  <!-- 左侧标签区的按钮（「＋ 新建」）。 -->
@@ -175,39 +244,48 @@
   <Setter Property="Focusable" Value="False" />
  </Style>
 
- <!-- 便签窗口：卡片阴影画在背后单独一层，外层缓存成位图，打字时不重算。 -->
+ <!-- 便签窗口：卡片阴影画在背后单独一层（贴边的短阴影 + 外圈的柔和阴影），外层缓存成位图，打字时不重算。 -->
  <Style x:Key="CardShadow" TargetType="Border">
   <Setter Property="Background" Value="{DynamicResource Surface}" />
   <Setter Property="CornerRadius" Value="10" />
   <Setter Property="IsHitTestVisible" Value="False" />
-  <Setter Property="Effect"><Setter.Value><DropShadowEffect BlurRadius="14" ShadowDepth="2" Direction="270" Opacity="0.14" /></Setter.Value></Setter>
+  <Setter Property="Effect"><Setter.Value><DropShadowEffect BlurRadius="12" ShadowDepth="3" Direction="270" Opacity="0.15" /></Setter.Value></Setter>
  </Style>
 
- <!-- 顶栏上的小标签（「主便签」）。 -->
+ <Style x:Key="CardContact" TargetType="Border" BasedOn="{StaticResource CardShadow}">
+  <Setter Property="Effect"><Setter.Value><DropShadowEffect BlurRadius="3" ShadowDepth="1" Direction="270" Opacity="0.18" /></Setter.Value></Setter>
+ </Style>
+
+ <!-- 顶栏上的小标签（「主便签」）：浅浅压进去。 -->
  <Style x:Key="Tag" TargetType="Border">
-  <Setter Property="Background" Value="{DynamicResource Selected}" />
-  <Setter Property="CornerRadius" Value="4" />
-  <Setter Property="Padding" Value="6,1,6,2" />
+  <Setter Property="Background" Value="{DynamicResource Inset}" />
+  <Setter Property="BorderBrush" Value="{DynamicResource Groove}" />
+  <Setter Property="BorderThickness" Value="1" />
+  <Setter Property="CornerRadius" Value="5" />
+  <Setter Property="Padding" Value="7,2,7,3" />
   <Setter Property="HorizontalAlignment" Value="Left" />
   <Setter Property="VerticalAlignment" Value="Center" />
   <Setter Property="TextElement.FontSize" Value="11" />
   <Setter Property="TextElement.Foreground" Value="{DynamicResource Muted}" />
  </Style>
 
- <!-- 排版栏：底栏上方一条浅底托盘，按「字形 | 列表 | 颜色」分组。 -->
+ <!-- 排版栏：底栏上方一道凹槽，按「字形 | 列表 | 颜色」分组。 -->
  <Style x:Key="FormatTray" TargetType="Border">
-  <Setter Property="Background" Value="{DynamicResource Subtle}" />
+  <Setter Property="Background" Value="{DynamicResource Inset}" />
+  <Setter Property="BorderBrush" Value="{DynamicResource Groove}" />
+  <Setter Property="BorderThickness" Value="1" />
   <Setter Property="CornerRadius" Value="8" />
   <Setter Property="Padding" Value="2" />
   <Setter Property="Margin" Value="10,0,10,2" />
  </Style>
 
+ <!-- 分隔线：刻进去的一道细缝（左暗右亮）。 -->
  <Style x:Key="ToolSeparator" TargetType="Border">
-  <Setter Property="Width" Value="1" />
+  <Setter Property="Width" Value="2" />
   <Setter Property="Height" Value="16" />
   <Setter Property="Margin" Value="4,0" />
   <Setter Property="VerticalAlignment" Value="Center" />
-  <Setter Property="Background" Value="{DynamicResource Edge}" />
+  <Setter Property="Background" Value="{DynamicResource Etch}" />
  </Style>
 
  <!-- 文字颜色色块：当前颜色外圈实线，悬停淡圈。 -->
