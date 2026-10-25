@@ -138,11 +138,11 @@ internal sealed partial class NoteController : IDisposable
     }
 
     // 显示不因保存失败而中止：状态留在内存，窗口上的保存提示负责重试。
-    private static void ShowSaved(NoteWindow window, bool activate)
+    private static void ShowSaved(NoteWindow window, bool activate, double slide = 0)
     {
         window.Update(data => data with { IsHidden = false });
         window.SaveNow();
-        window.Reveal(activate);
+        window.Reveal(activate, slide);
     }
 
     internal void ShowNote(NoteWindow window)

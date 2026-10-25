@@ -37,7 +37,32 @@ internal static partial class Program
             }).ToArray();
             controller.ExpandCollectedNote(children[0]);
             await PreviewReady(controller);
-            PreviewScene("collection.png", 990, 490, (main, 36, 40), (children[0], 544, 76));
+            // 子便签从标签一侧抽出：卡片在主便签标签区左边 8，顶部对齐第一个标签（卡片顶 + 48）。
+            PreviewScene("collection.png", 878, 490, (children[0], 24, 88), (main, 382, 40));
+            controller.RequestExit();
+        }
+
+        // 标签很多时：压矮、不出滚动条，底部渐隐；标签颜色取自各自的便签。
+        using (var store = new NoteStore(Path.Combine(root, "rail", "Data")))
+        using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
+        {
+            controller.Start();
+            var main = controller.Notes.Values.Single();
+            PreviewSize(main, 360, 330, "green");
+            main.Editor.TextContent = "主便签\n左边是收起来的便签。";
+            controller.SetMainNote(main);
+            var palettes = new[] { "green", "cream", "mist", "yellow", "pink", "neutral" };
+            var titles = new[] { "模型使用记录", "节点连接", "服务器", "重构原则", "设计提纲", "Solve", "代理设置", "周末计划", "", "读书摘记", "", "常用入口" };
+            for (var index = 0; index < titles.Length; index++)
+            {
+                var child = controller.CreateNote();
+                child.ApplyAppearance(new NoteAppearance { Palette = palettes[index % palettes.Length] });
+                child.Editor.TextContent = titles[index];
+                controller.CollectNote(child);
+            }
+            controller.ExpandCollectedNote(controller.CollectedNotes(main).ElementAt(2));
+            await PreviewReady(controller);
+            PreviewScene("rail.png", 500, 394, (main, 24, 32));
             controller.RequestExit();
         }
 
@@ -123,7 +148,7 @@ internal static partial class Program
             backdrop.Close();
             controller.RequestExit();
         }
-        Console.WriteLine("已生成 collection.png、formats.png、links.png 和细节图；未使用正式 Data。");
+        Console.WriteLine("已生成 collection.png、formats.png、links.png、rail.png 和细节图；未使用正式 Data。");
     }
 
     // 便签窗口四周有阴影边距：这里的宽高和场景坐标都按正文卡片算。

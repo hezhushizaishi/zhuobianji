@@ -72,10 +72,12 @@ internal static partial class Program
         var mainText = main.Editor.TextContent;
         richTab.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         await Task.Delay(50);
+        var tabTop = richTab.TransformToAncestor(main).Transform(new Point()).Y + main.Top;
         Check(rich.IsVisible && rich.Editor.IsVisible && rich.CloseButton.IsVisible && Equals(rich.CloseButton.ToolTip, "收起便签（Ctrl+W）") &&
             main.Editor.TextContent == mainText && main.Editor.IsVisible &&
-            rich.Left >= main.Left + main.Width,
-            "标签单击在主便签旁展开独立编辑窗口，主正文保持可见");
+            rich.Left + rich.Width - NoteWindow.ShadowMargin <= main.Left + NoteWindow.ShadowMargin &&
+            Math.Abs(rich.Snapshot().Top - tabTop) < 1 && richTab.IsChecked == true,
+            "标签单击从标签一侧展开独立编辑窗口，顶部对齐标签，主正文保持可见");
         rich.Editor.InsertPlain("\n展开时补充的内容");
         richTab.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         Check(!rich.IsVisible && main.CollectionTabButtons.ContainsKey(rich.Data.Id) &&

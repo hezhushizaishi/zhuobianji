@@ -55,21 +55,32 @@ internal sealed partial class NoteController
         return true;
     }
 
+    // 子便签从标签那一侧抽出来：卡片右边贴着主便签的标签区，顶部对齐它的标签；左边放不下才放到主便签右边。
+    // 窗口坐标含四周的阴影边距，卡片边缘 = 窗口边缘 ± ShadowMargin。
+    private const double ExpandGap = 8;
+
     internal bool ExpandCollectedNote(NoteWindow window)
     {
         if (window.Data.CollectedBy is null || MainNote is not { } main) return false;
         ShowSaved(main, activate: false);
+        var slide = 0.0;
         if (!window.IsVisible)
         {
             var area = SystemParameters.WorkArea;
-            var index = CollectedNotes(main).TakeWhile(child => child != window).Count();
-            var x = main.Left + main.Width + 10;
-            if (x + window.Width > area.Right) x = main.Left - window.Width - 10;
-            window.Left = Math.Max(area.Left, Math.Min(x, area.Right - window.Width));
-            window.Top = Math.Max(area.Top, Math.Min(main.Top + index % 5 * 26, area.Bottom - window.Height));
+            var margin = NoteWindow.ShadowMargin;
+            var railLeft = main.Left + margin + (main.Data.ShowCollectionRail ? 0 : main.CollectionRailWidth);
+            var x = railLeft - ExpandGap - window.Width + margin;
+            slide = 16;
+            if (x + margin < area.Left)
+            {
+                x = main.Left + main.Width - 2 * margin + ExpandGap;
+                slide = -16;
+            }
+            window.Left = Math.Max(area.Left - margin, Math.Min(x, area.Right - window.Width + margin));
+            window.Top = Math.Max(area.Top - margin, Math.Min(main.CollectionTabTop(window) - margin, area.Bottom - window.Height + margin));
             if (window.Data.IsOnDesktop && !window.IsDesktopAttached) SetDesktopMode(window, true);
         }
-        ShowSaved(window, activate: true);
+        ShowSaved(window, activate: true, slide);
         RefreshCollections();
         return true;
     }

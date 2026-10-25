@@ -51,15 +51,28 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
     public static readonly Duration Standard = new(TimeSpan.FromMilliseconds(Animate ? 180 : 0));
     public static readonly IEasingFunction Ease = Frozen(new CubicEase { EasingMode = EasingMode.EaseOut });
 
-    // 出现：淡入，同时从下方 rise 处升到原位（标准时长）。
+    // 出现：从全透明淡入到元素自己的透明度，同时从下方 rise 处升到原位（标准时长）。
     internal static void Reveal(UIElement element, double rise = 0)
     {
         if (!Animate) return;
-        element.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, Standard) { EasingFunction = Ease });
+        element.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation { From = 0, Duration = Standard, EasingFunction = Ease });
         if (rise == 0) return;
         var shift = new TranslateTransform();
         element.RenderTransform = shift;
         shift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(rise, 0, Standard) { EasingFunction = Ease });
+    }
+
+    // 可滚动区域的边缘渐隐：上面或下面还有内容时，那一侧 18px 淡出。都没有时不加遮罩。
+    internal static Brush? FadeMask(double height, bool top, bool bottom)
+    {
+        if (!top && !bottom || height <= 36) return null;
+        var edge = 18 / height;
+        var stops = new GradientStopCollection
+        {
+            new(top ? Colors.Transparent : Colors.Black, 0), new(Colors.Black, top ? edge : 0),
+            new(Colors.Black, bottom ? 1 - edge : 1), new(bottom ? Colors.Transparent : Colors.Black, 1)
+        };
+        return Frozen(new LinearGradientBrush(stops, new Point(0, 0), new Point(0, 1)));
     }
 
     // 正文排版：行高按字号倍数，段落与列表只留很小的段后距。

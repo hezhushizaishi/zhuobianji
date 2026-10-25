@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Media;
 using Zhuobianji;
 using Zhuobianji.Core;
 
@@ -60,15 +61,18 @@ internal static partial class Program
         main.Editor.InsertPlain("\n排序时刚写的文字");
         var dragOver = CollectionDragEvent(main, c.Data.Id, 1, DragDrop.DragOverEvent);
         main.CollectionScroll.RaiseEvent(dragOver);
-        Check(dragOver.Effects == DragDropEffects.Move && main.CollectionDropMarker.Visibility == Visibility.Visible,
-            "拖到最上方时显示插入线");
+        await Task.Delay(250);
+        double Shift(NoteWindow window, Guid id) => ((TranslateTransform)window.CollectionTabButtons[id].RenderTransform).Y;
+        Check(dragOver.Effects == DragDropEffects.Move && Shift(main, a.Data.Id) > 20 && Shift(main, b.Data.Id) > 20 &&
+            Shift(main, c.Data.Id) < -40, "拖到最上方时，被拖的标签跟着指针，其他标签往下让出位置");
         var drop = CollectionDragEvent(main, c.Data.Id, 1, DragDrop.DropEvent);
         main.CollectionScroll.RaiseEvent(drop);
+        await Task.Delay(250);
         main.UpdateLayout();
         Check(drop.Effects == DragDropEffects.Move &&
             VisibleTabOrder(main).SequenceEqual(new[] { c.Data.Id, a.Data.Id, b.Data.Id }) &&
-            main.CollectionDropMarker.Visibility == Visibility.Collapsed && !c.IsVisible,
-            "松手将标签移到最前，收起的便签不被误展开");
+            new[] { a, b, c }.All(child => Math.Abs(Shift(main, child.Data.Id)) < 0.5) && !c.IsVisible,
+            "松手将标签移到最前并落回各自位置，收起的便签不被误展开");
         var savedMain = store.LoadAll().Notes.Single(note => note.Id == main.Data.Id);
         Check(savedMain.CollectionOrder.SequenceEqual(VisibleTabOrder(main)) &&
             savedMain.Text.Contains("排序时刚写的文字") && SameCard(savedMain, initialMain),

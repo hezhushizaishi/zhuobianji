@@ -166,46 +166,88 @@
   </ControlTemplate></Setter.Value></Setter>
  </Style>
 
- <!-- 左侧标签区的按钮（「＋ 新建」）。 -->
- <Style x:Key="RailButton" TargetType="ButtonBase" BasedOn="{StaticResource ToolButton}">
-  <Setter Property="Background" Value="{DynamicResource Surface}" />
-  <Setter Property="Height" Value="38" />
-  <Setter Property="Width" Value="84" />
+ <!-- 收纳标签：活页本的索引贴，右端一截压在卡片下面，只有外侧圆角。
+      颜色取自那张子便签（代码把子便签的配色写进标签自己的资源）：收着时是子便签的顶栏色、字淡；
+      展开（IsChecked）时底色和子便签正文一样、字变实。往外抽出的位移由代码控制（NoteWindow.Collection）。 -->
+ <Style x:Key="CollectionTab" TargetType="ToggleButton">
+  <Setter Property="Height" Value="30" />
+  <Setter Property="Margin" Value="12,0,0,3" />
+  <Setter Property="Padding" Value="10,0,14,0" />
   <Setter Property="FontSize" Value="12" />
-  <Setter Property="Padding" Value="8,0,4,0" />
-  <Setter Property="Margin" Value="0,0,0,6" />
-  <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ButtonBase">
-   <Border x:Name="TabBorder" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Edge}" BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}">
-    <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" />
-   </Border>
+  <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+  <Setter Property="Background" Value="{DynamicResource HeaderFill}" />
+  <Setter Property="Cursor" Value="Hand" />
+  <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
+   <Grid Background="Transparent">
+    <Border Background="{DynamicResource Shade}" CornerRadius="7,0,0,7" Margin="0,1,0,-1" />
+    <Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Bevel}" BorderThickness="1,1,0,1" CornerRadius="7,0,0,7" Padding="{TemplateBinding Padding}">
+     <TextBlock x:Name="Title" Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+    </Border>
+    <Border x:Name="Hover" Background="{DynamicResource Glow}" CornerRadius="7,0,0,7" Opacity="0" />
+   </Grid>
    <ControlTemplate.Triggers>
-    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource Accent}" /></Trigger>
-    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource Text}" /></Trigger>
-    <Trigger Property="IsPressed" Value="True"><Setter TargetName="TabBorder" Property="Opacity" Value="0.7" /></Trigger>
+    <Trigger Property="IsMouseOver" Value="True">
+     <Trigger.EnterActions><BeginStoryboard><Storyboard>
+      <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+     </Storyboard></BeginStoryboard></Trigger.EnterActions>
+     <Trigger.ExitActions><BeginStoryboard><Storyboard FillBehavior="Stop">
+      <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+     </Storyboard></BeginStoryboard></Trigger.ExitActions>
+    </Trigger>
+    <Trigger Property="IsChecked" Value="True"><Setter TargetName="Title" Property="FontWeight" Value="SemiBold" /></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+  <Style.Triggers>
+   <Trigger Property="IsChecked" Value="True">
+    <Setter Property="Background" Value="{DynamicResource Surface}" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+   </Trigger>
+  </Style.Triggers>
+ </Style>
+
+ <!-- 新建收纳便签：紧跟在最后一个标签后面的虚线空标签。 -->
+ <Style x:Key="NewTab" TargetType="Button">
+  <Setter Property="Height" Value="26" />
+  <Setter Property="Margin" Value="12,1,0,0" />
+  <Setter Property="FontSize" Value="11" />
+  <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+  <Setter Property="Cursor" Value="Hand" />
+  <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+   <Grid Background="Transparent">
+    <Border x:Name="Hover" Background="{DynamicResource Subtle}" CornerRadius="7,0,0,7" Opacity="0" />
+    <Rectangle x:Name="Dash" RadiusX="7" RadiusY="7" Stroke="{DynamicResource Muted}" StrokeThickness="1" StrokeDashArray="3 2" Opacity="0.5" />
+    <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0" />
+   </Grid>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsMouseOver" Value="True">
+     <Setter TargetName="Hover" Property="Opacity" Value="1" />
+     <Setter TargetName="Dash" Property="Opacity" Value="0.9" />
+     <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    </Trigger>
+    <Trigger Property="IsPressed" Value="True"><Setter TargetName="Hover" Property="Background" Value="{DynamicResource Inset}" /></Trigger>
    </ControlTemplate.Triggers>
   </ControlTemplate></Setter.Value></Setter>
  </Style>
 
- <!-- 收纳标签：标题过长省略；展开时（IsChecked）强调底色、箭头朝左。 -->
- <Style x:Key="CollectionTab" TargetType="ToggleButton" BasedOn="{StaticResource RailButton}">
-  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
-   <Border x:Name="TabBorder" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Edge}" BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}">
-    <DockPanel VerticalAlignment="Center">
-     <TextBlock x:Name="Arrow" DockPanel.Dock="Right" Width="12" TextAlignment="Center" Text="›" />
-     <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" TextTrimming="CharacterEllipsis" />
-    </DockPanel>
-   </Border>
-   <ControlTemplate.Triggers>
-    <Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="Text" Value="‹" /></Trigger>
-    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource Accent}" /></Trigger>
-    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource Text}" /></Trigger>
-    <Trigger Property="IsPressed" Value="True"><Setter TargetName="TabBorder" Property="Opacity" Value="0.7" /></Trigger>
-   </ControlTemplate.Triggers>
-  </ControlTemplate></Setter.Value></Setter>
-  <Style.Triggers>
-   <Trigger Property="IsChecked" Value="True"><Setter Property="Background" Value="{DynamicResource Accent}" /></Trigger>
-  </Style.Triggers>
+ <!-- 标签的悬停预览：标题、开头几行和修改时间。 -->
+ <Style x:Key="TabPreviewTitle" TargetType="TextBlock">
+  <Setter Property="FontWeight" Value="SemiBold" />
+  <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+ </Style>
+
+ <Style x:Key="TabPreviewLine" TargetType="TextBlock">
+  <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+  <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  <Setter Property="Margin" Value="0,3,0,0" />
+ </Style>
+
+ <Style x:Key="TabPreviewNote" TargetType="TextBlock">
+  <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+  <Setter Property="FontSize" Value="11" />
+  <Setter Property="Opacity" Value="0.8" />
+  <Setter Property="Margin" Value="0,8,0,0" />
  </Style>
 
  <!-- 便签上弹出的小卡片（链接卡片、文字颜色）：外边距留给阴影，阴影单独一层。 -->

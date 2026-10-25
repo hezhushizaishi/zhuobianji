@@ -11,6 +11,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using SymbolRegular = Wpf.Ui.Controls.SymbolRegular;
 using Zhuobianji.Core;
@@ -68,11 +69,22 @@ internal partial class NoteWindow : Window
         }
     }
 
-    internal void Reveal(bool activate)
+    // 显示窗口；原本隐藏时淡入（120ms），slide 不为 0 时同时从这个水平位移滑到原位（子便签从标签一侧抽出）。
+    internal void Reveal(bool activate, double slide = 0)
     {
+        var appearing = !IsVisible;
         WindowState = WindowState.Normal;
         ShowActivated = activate;
         Show();
+        if (appearing && NoteTheme.Animate)
+        {
+            // 动画结束后撤掉（FillBehavior.Stop），停在原值上，不让卡片一直走透明层而丢掉 ClearType。
+            Frame.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, NoteTheme.Fast) { EasingFunction = NoteTheme.Ease, FillBehavior = FillBehavior.Stop });
+            var shift = new TranslateTransform();
+            Frame.RenderTransform = shift;
+            if (slide != 0) shift.BeginAnimation(TranslateTransform.XProperty,
+                new DoubleAnimation(slide, 0, NoteTheme.Standard) { EasingFunction = NoteTheme.Ease, FillBehavior = FillBehavior.Stop });
+        }
         // 从隐藏的启动器运行时，仍应展示用户要编辑的窗口。
         ShowWindow(new WindowInteropHelper(this).Handle, 1);
         if (activate)
