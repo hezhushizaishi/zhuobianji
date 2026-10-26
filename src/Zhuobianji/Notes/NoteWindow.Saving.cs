@@ -120,13 +120,14 @@ internal partial class NoteWindow
         SaveErrorText.Visibility = error is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    // WM_ENTERSIZEMOVE / WM_EXITSIZEMOVE：拖动或缩放期间不写盘。
+    // WM_ENTERSIZEMOVE / WM_EXITSIZEMOVE：拖动或缩放期间不写盘；松手后标签区宽度跟上卡片的新大小。
     private nint OnMoveMessage(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)
     {
         if (message == 0x0231) { moving = true; saveTimer.Stop(); }
         else if (message == 0x0232)
         {
             moving = false;
+            Dispatcher.BeginInvoke(FitRailWidth);
             if (IsDirty) saveTimer.Start();
         }
         return 0;

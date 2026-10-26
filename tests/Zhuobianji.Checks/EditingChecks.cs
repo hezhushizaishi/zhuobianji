@@ -40,7 +40,7 @@ internal static partial class Program
         rich.UpdateLayout();
         rich.FormatBar.Visibility = Visibility.Visible;
         rich.UpdateLayout();
-        var boldButton = ((System.Windows.Controls.WrapPanel)rich.FormatBar.Child).Children.OfType<Button>().First();
+        var boldButton = ((System.Windows.Controls.WrapPanel)rich.FormatBar.Content).Children.OfType<Button>().First();
         Check(ReferenceEquals(boldButton.CommandTarget, rich.Editor.Rich), "格式按钮实际绑定到原生编辑器");
         Capture(rich, Path.Combine(root, "rich-preview.png"));
 

@@ -83,8 +83,9 @@ internal static partial class Program
             savedDuringTransition.Text.Contains("切换期间继续记录"), "动画期间立即保存也保留正文、位置和宽度");
         await Task.Delay(240);
         main.UpdateLayout();
-        Check(main.CollectionRail.Visibility == Visibility.Collapsed && main.CollectionRailWidth == 92 &&
-            Math.Abs(main.Width - original.Width - 92 - 2 * NoteWindow.ShadowMargin) < 1 && SameCard(main.Snapshot(), original) &&
+        var railWidth = NoteWindow.RailWidthFor(original.Width, original.Height);
+        Check(main.CollectionRail.Visibility == Visibility.Collapsed && main.CollectionRailWidth == railWidth && railWidth > NoteWindow.RailWidth &&
+            Math.Abs(main.Width - original.Width - railWidth - 2 * NoteWindow.ShadowMargin) < 1 && SameCard(main.Snapshot(), original) &&
             child.IsVisible && child.Data.CollectedBy == main.Data.Id && main.CollectionRailToggle.IsVisible,
             "关闭标签完全隐藏，透明区域保留，正文和已展开窗口不变");
         var transparentPoint = main.PointToScreen(new Point(30, 140));

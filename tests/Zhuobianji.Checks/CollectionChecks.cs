@@ -43,7 +43,8 @@ internal static partial class Program
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
         var main = controller.Notes.Values.Single();
-        main.Left = 520; main.Top = 120; main.Width = 470; main.Height = 440;
+        // 左边留够一张子便签加放大后的标签区，展开时放在主便签左边。
+        main.Left = 640; main.Top = 120; main.Width = 470; main.Height = 440;
         main.Editor.TextContent = "主便签自己的正文\n左边点击标签展开，正文一直保留。";
         main.SaveNow();
         var bodyBounds = main.Snapshot();

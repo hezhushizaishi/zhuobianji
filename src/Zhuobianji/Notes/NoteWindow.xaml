@@ -30,17 +30,17 @@
   <Grid x:Name="Frame" Margin="12">
    <Grid.ColumnDefinitions><ColumnDefinition x:Name="RailColumn" Width="0" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
    <!-- 左侧标签区：只有主便签有宽度；关闭标签时保留透明区域，窗口边界不变。
-        标签像活页本的索引贴，右端伸到卡片下面 10px；放不下时先压矮，再用滚轮滚动，不显示滚动条。 -->
+        标签像活页本的索引贴，右端伸到卡片下面一截（右边距由代码按档位设置）；放不下时用滚轮滚动，不显示滚动条。 -->
    <Grid x:Name="RailViewport" Grid.Column="0" Margin="0,48,-10,6" ClipToBounds="True">
     <Grid x:Name="CollectionRail" Visibility="Collapsed">
      <Grid.RenderTransform><TranslateTransform x:Name="RailTranslation" /></Grid.RenderTransform>
      <ScrollViewer x:Name="CollectionScroll" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False" AllowDrop="True"
-      DragOver="OnCollectionDragOver" DragLeave="OnCollectionDragLeave" Drop="OnCollectionDrop" ScrollChanged="OnCollectionScrolled" SizeChanged="OnCollectionResized">
+      DragOver="OnCollectionDragOver" DragLeave="OnCollectionDragLeave" Drop="OnCollectionDrop" ScrollChanged="OnCollectionScrolled">
       <StackPanel>
        <StackPanel x:Name="CollectionTabs" Background="Transparent" />
        <Button x:Name="CollectionNewButton" Style="{StaticResource NewTab}" ToolTip="新建收纳便签" AutomationProperties.Name="新建收纳便签" Click="OnNewCollected">
         <StackPanel Orientation="Horizontal">
-         <ui:SymbolIcon Symbol="Add20" FontSize="13" />
+         <ui:SymbolIcon Symbol="Add20" FontSize="{DynamicResource TabFontSize}" />
          <TextBlock Text="新建" Margin="4,0,0,0" VerticalAlignment="Center" />
         </StackPanel>
        </Button>
@@ -58,15 +58,12 @@
      <Grid.RowDefinitions>
       <RowDefinition Height="42" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" MinHeight="36" />
      </Grid.RowDefinitions>
-     <!-- 顶栏上浅下深，上沿一道亮线、下沿一道暗线，往正文上投一点阴影。 -->
+     <!-- 顶栏上浅下深，上沿一道亮线、下沿一道暗线，往正文上投一点阴影。
+          右边的键托是便签操作；主便签左边多一个键托「主便签」，点它收放左侧标签。普通便签左边空着，只当拖动区。 -->
      <Border x:Name="HeaderBand" Background="{DynamicResource HeaderFill}" BorderBrush="{DynamicResource Bevel}" BorderThickness="0,1,0,1" CornerRadius="9,9,0,0" TextOptions.TextFormattingMode="Display">
-      <DockPanel Margin="14,0,6,0">
+      <DockPanel Margin="6,0">
        <ContentControl DockPanel.Dock="Right" Style="{StaticResource KeyTray}">
         <StackPanel Orientation="Horizontal">
-         <ToggleButton x:Name="CollectionRailToggle" Style="{StaticResource IconToggle}" Click="OnToggleRail" Visibility="Collapsed" AutomationProperties.Name="左侧标签">
-          <ui:SymbolIcon Symbol="PanelLeft20" />
-         </ToggleButton>
-         <Border Style="{StaticResource ToolSeparator}" Visibility="{Binding Visibility, ElementName=CollectionRailToggle}" />
          <Button Style="{StaticResource IconButton}" ToolTip="新建便签（Ctrl+N）" AutomationProperties.Name="新建便签" Click="OnNewNote">
           <ui:SymbolIcon Symbol="Add20" />
          </Button>
@@ -99,13 +96,20 @@
          </Button>
         </StackPanel>
        </ContentControl>
-       <!-- 普通便签顶栏不写标题，只当拖动区；主便签显示一个小标签。 -->
-       <Border x:Name="MainTag" Style="{StaticResource Tag}" Visibility="Collapsed"><TextBlock Text="主便签" /></Border>
+       <ContentControl x:Name="MainTray" Style="{StaticResource KeyTray}" HorizontalAlignment="Left" Visibility="Collapsed">
+        <ToggleButton x:Name="CollectionRailToggle" Style="{StaticResource LabelToggle}" Padding="8,0,10,0" Click="OnToggleRail" AutomationProperties.Name="左侧标签">
+         <StackPanel Orientation="Horizontal">
+          <ui:SymbolIcon Symbol="PanelLeft20" />
+          <TextBlock Text="主便签" Margin="6,0,0,0" VerticalAlignment="Center" />
+         </StackPanel>
+        </ToggleButton>
+       </ContentControl>
       </DockPanel>
      </Border>
      <Border Grid.Row="1" Height="6" VerticalAlignment="Top" Background="{DynamicResource HeaderShade}" IsHitTestVisible="False" />
      <local:NoteEditor x:Name="OwnEditor" Grid.Row="1" Margin="22,10,14,8" />
-     <Border x:Name="FormatBar" Grid.Row="2" Style="{StaticResource FormatTray}" Visibility="Collapsed" TextOptions.TextFormattingMode="Display">
+     <!-- 排版栏：底栏上方同样一个键托，按「字形 | 列表 | 颜色」分组。 -->
+     <ContentControl x:Name="FormatBar" Grid.Row="2" Style="{StaticResource KeyTray}" HorizontalAlignment="Left" Margin="6,0,6,4" Visibility="Collapsed" TextOptions.TextFormattingMode="Display">
       <WrapPanel>
        <Button Style="{StaticResource IconButton}" ToolTip="粗体（Ctrl+B）" Focusable="False" Command="EditingCommands.ToggleBold" CommandTarget="{Binding ElementName=OwnEditor, Path=RichEditor}"><ui:SymbolIcon Symbol="TextBold20" /></Button>
        <Button Style="{StaticResource IconButton}" ToolTip="斜体（Ctrl+I）" Focusable="False" Command="EditingCommands.ToggleItalic" CommandTarget="{Binding ElementName=OwnEditor, Path=RichEditor}"><ui:SymbolIcon Symbol="TextItalic20" /></Button>
@@ -123,42 +127,51 @@
         </Grid>
        </Button>
       </WrapPanel>
-     </Border>
-     <DockPanel Grid.Row="3" Margin="10,2,4,4" TextOptions.TextFormattingMode="Display">
-      <ResizeGrip DockPanel.Dock="Right" Width="14" Height="14" VerticalAlignment="Bottom" shell:WindowChrome.ResizeGripDirection="BottomRight" />
-      <Button x:Name="DeleteButton" DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" ToolTip="删除便签" AutomationProperties.Name="删除便签" Click="OnDelete">
-       <ui:SymbolIcon Style="{StaticResource DeleteIcon}" />
-      </Button>
-      <!-- 保存状态：平时一个很淡的勾，保存中更淡，失败时显示红字；状态文字在提示里。 -->
-      <Button x:Name="SaveStatus" DockPanel.Dock="Right" Style="{StaticResource ToolButton}" Padding="6,0" Margin="0,0,2,0" Click="OnSave">
-       <Grid>
-        <ui:SymbolIcon x:Name="SaveIcon" Symbol="Checkmark20" FontSize="14" Foreground="{DynamicResource Muted}" Opacity="0.6" />
-        <TextBlock x:Name="SaveErrorText" Text="保存失败 · 点击重试" FontSize="11" Foreground="{DynamicResource Error}" Visibility="Collapsed" />
-       </Grid>
-      </Button>
-      <WrapPanel VerticalAlignment="Center">
-       <Button x:Name="ModeButton" Style="{StaticResource KeyButton}" Height="26" Padding="9,0,6,0" Margin="0,0,4,0" ToolTip="切换编辑格式" Click="OnFormatMenu">
-        <StackPanel Orientation="Horizontal">
-         <TextBlock x:Name="ModeLabel" Text="富文本" VerticalAlignment="Center" />
-         <ui:SymbolIcon Symbol="ChevronDown20" FontSize="12" Margin="4,1,0,0" Foreground="{DynamicResource Muted}" />
-        </StackPanel>
-        <Button.ContextMenu><ContextMenu>
-         <MenuItem x:Name="RichFormatItem" Header="富文本" Tag="RichText" IsCheckable="True" Click="OnChangeFormat" />
-         <MenuItem x:Name="MarkdownFormatItem" Header="Markdown" Tag="Markdown" IsCheckable="True" Click="OnChangeFormat" />
-         <MenuItem x:Name="PlainFormatItem" Header="纯文本" Tag="PlainText" IsCheckable="True" Click="OnChangeFormat" />
-        </ContextMenu></Button.ContextMenu>
-       </Button>
-       <ToggleButton x:Name="FormatButton" Style="{StaticResource IconToggle}" Margin="2,0,0,0" ToolTip="排版工具" AutomationProperties.Name="排版" Focusable="False" Click="OnFormatBar">
-        <ui:SymbolIcon Symbol="TextEditStyle20" />
-       </ToggleButton>
-       <Button x:Name="LinkButton" Style="{StaticResource IconButton}" Margin="2,0,0,0" ToolTip="插入链接：文件、文件夹或网页" AutomationProperties.Name="链接" Focusable="False" Click="OnLink">
-        <ui:SymbolIcon Symbol="Link20" />
-       </Button>
-       <StackPanel x:Name="MarkdownButtons" Orientation="Horizontal" Visibility="Collapsed">
-        <ToggleButton x:Name="SourceButton" Style="{StaticResource IconToggle}" Margin="2,0,0,0" ToolTip="源码" AutomationProperties.Name="源码" Click="OnSource"><ui:SymbolIcon Symbol="Code20" /></ToggleButton>
-        <ToggleButton x:Name="PreviewButton" Style="{StaticResource IconToggle}" Margin="2,0,0,0" ToolTip="预览" AutomationProperties.Name="预览" Click="OnPreview"><ui:SymbolIcon Symbol="Eye20" /></ToggleButton>
+     </ContentControl>
+     <!-- 底栏：左边的键托放格式切换和编辑工具，右边的键托放保存状态和删除；缩放角在右下角落，压在键托下面。 -->
+     <ResizeGrip Grid.Row="3" Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Bottom" shell:WindowChrome.ResizeGripDirection="BottomRight" />
+     <DockPanel Grid.Row="3" Margin="6,0,6,6" TextOptions.TextFormattingMode="Display">
+      <ContentControl DockPanel.Dock="Right" Style="{StaticResource KeyTray}">
+       <StackPanel Orientation="Horizontal">
+        <!-- 保存状态：平时一个很淡的勾，保存中更淡，失败时显示红字；状态文字在提示里。 -->
+        <Button x:Name="SaveStatus" Style="{StaticResource ToolButton}" Padding="6,0" Click="OnSave">
+         <Grid>
+          <ui:SymbolIcon x:Name="SaveIcon" Symbol="Checkmark20" FontSize="14" Foreground="{DynamicResource Muted}" Opacity="0.6" />
+          <TextBlock x:Name="SaveErrorText" Text="保存失败 · 点击重试" FontSize="11" Foreground="{DynamicResource Error}" Visibility="Collapsed" />
+         </Grid>
+        </Button>
+        <Border Style="{StaticResource ToolSeparator}" />
+        <Button x:Name="DeleteButton" Style="{StaticResource DangerIconButton}" ToolTip="删除便签" AutomationProperties.Name="删除便签" Click="OnDelete">
+         <ui:SymbolIcon Style="{StaticResource DeleteIcon}" />
+        </Button>
        </StackPanel>
-      </WrapPanel>
+      </ContentControl>
+      <ContentControl Style="{StaticResource KeyTray}" HorizontalAlignment="Left">
+       <StackPanel Orientation="Horizontal">
+        <Button x:Name="ModeButton" Style="{StaticResource LabelButton}" Padding="8,0,6,0" ToolTip="切换编辑格式" Click="OnFormatMenu">
+         <StackPanel Orientation="Horizontal">
+          <TextBlock x:Name="ModeLabel" Text="富文本" VerticalAlignment="Center" />
+          <ui:SymbolIcon Symbol="ChevronDown20" FontSize="12" Margin="4,1,0,0" />
+         </StackPanel>
+         <Button.ContextMenu><ContextMenu>
+          <MenuItem x:Name="RichFormatItem" Header="富文本" Tag="RichText" IsCheckable="True" Click="OnChangeFormat" />
+          <MenuItem x:Name="MarkdownFormatItem" Header="Markdown" Tag="Markdown" IsCheckable="True" Click="OnChangeFormat" />
+          <MenuItem x:Name="PlainFormatItem" Header="纯文本" Tag="PlainText" IsCheckable="True" Click="OnChangeFormat" />
+         </ContextMenu></Button.ContextMenu>
+        </Button>
+        <Border x:Name="ModeSeparator" Style="{StaticResource ToolSeparator}" />
+        <ToggleButton x:Name="FormatButton" Style="{StaticResource IconToggle}" ToolTip="排版工具" AutomationProperties.Name="排版" Focusable="False" Click="OnFormatBar">
+         <ui:SymbolIcon Symbol="TextEditStyle20" />
+        </ToggleButton>
+        <Button x:Name="LinkButton" Style="{StaticResource IconButton}" Margin="2,0,0,0" ToolTip="插入链接：文件、文件夹或网页" AutomationProperties.Name="链接" Focusable="False" Click="OnLink">
+         <ui:SymbolIcon Symbol="Link20" />
+        </Button>
+        <StackPanel x:Name="MarkdownButtons" Orientation="Horizontal" Visibility="Collapsed">
+         <ToggleButton x:Name="SourceButton" Style="{StaticResource IconToggle}" Margin="2,0,0,0" ToolTip="源码" AutomationProperties.Name="源码" Click="OnSource"><ui:SymbolIcon Symbol="Code20" /></ToggleButton>
+         <ToggleButton x:Name="PreviewButton" Style="{StaticResource IconToggle}" Margin="2,0,0,0" ToolTip="预览" AutomationProperties.Name="预览" Click="OnPreview"><ui:SymbolIcon Symbol="Eye20" /></ToggleButton>
+        </StackPanel>
+       </StackPanel>
+      </ContentControl>
      </DockPanel>
     </Grid>
    </Border>

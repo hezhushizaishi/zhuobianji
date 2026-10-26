@@ -11,10 +11,12 @@
   <ResourceDictionary Source="pack://application:,,,/Wpf.Ui;component/Resources/Fonts.xaml" />
  </ResourceDictionary.MergedDictionaries>
 
- <!-- 规范：图标 16px（20 号字形）；按钮高 28、圆角 6，卡片和弹窗圆角 8，便签 10；间距取 4 / 8 / 12 / 16；
+ <!-- 规范：图标 16px（20 号字形）；按钮高 28、圆角 6，键托、卡片和弹窗圆角 8，便签 10；间距取 4 / 8 / 12 / 16；
       说明文字 11 号，按钮和菜单 12 号。键盘焦点画一圈描边。
-      立体感：光从上方来。凸起的东西上沿亮、下沿一道暗边（Raised + Bevel + 下方 1px Shade），
-      凹进去的上沿暗（Inset + Groove）。图标按钮平时是平的，悬停浮起（NoteTheme.Fast 淡入），按下和开启时凹进去。 -->
+      立体感只有一种做法：光从上方来，凸起的东西上沿亮、下沿一道暗边（Raised + Bevel + 下方 1px Shade）。
+      便签上能点的按钮都放在键托（KeyTray）上：顶栏左右各一个、底栏左右各一个、排版栏一个，离卡片边缘都是 6。
+      托里的按键平时是平的，悬停浮起（NoteTheme.Fast 淡入），按下和开启时凹进去；凹只表示按下或开启，不拿来装饰。
+      左侧标签用同一种凸起（圆角 8、上亮下暗、底下一道暗边），尺寸由代码按主便签大小换算（NoteWindow.Collection）。 -->
  <Style x:Key="Icon" TargetType="ui:SymbolIcon">
   <Setter Property="FontFamily" Value="{StaticResource FluentSystemIcons}" />
   <Setter Property="FontSize" Value="16" />
@@ -90,11 +92,22 @@
   </Style.Triggers>
  </Style>
 
- <!-- 开关型图标按钮（置顶、标签、排版、源码 / 预览）：开启时凹进去、图标变实。 -->
+ <!-- 开关型图标按钮（置顶、排版、源码 / 预览）：开启时凹进去、图标变实。 -->
  <Style x:Key="IconToggle" TargetType="ToggleButton" BasedOn="{StaticResource IconButton}">
   <Style.Triggers>
    <Trigger Property="IsChecked" Value="True"><Setter Property="Foreground" Value="{DynamicResource Text}" /></Trigger>
   </Style.Triggers>
+ </Style>
+
+ <!-- 带文字的图标按钮（「富文本 ⌄」「主便签」）：和图标按钮一样平时淡色、悬停变实，宽度随内容。 -->
+ <Style x:Key="LabelButton" TargetType="ButtonBase" BasedOn="{StaticResource IconButton}">
+  <Setter Property="Width" Value="Auto" />
+  <Setter Property="Padding" Value="8,0" />
+ </Style>
+
+ <Style x:Key="LabelToggle" TargetType="ToggleButton" BasedOn="{StaticResource IconToggle}">
+  <Setter Property="Width" Value="Auto" />
+  <Setter Property="Padding" Value="8,0" />
  </Style>
 
  <Style x:Key="DeleteIcon" TargetType="ui:SymbolIcon" BasedOn="{StaticResource Icon}">
@@ -108,7 +121,7 @@
   </Style.Triggers>
  </Style>
 
- <!-- 凸起的按键（「富文本 ⌄」、弹窗按钮）：平时就是浮起的键面，悬停提亮，按下凹进去。 -->
+ <!-- 单独凸起的按键（弹窗按钮）：平时就是浮起的键面，和键托同一种做法；悬停提亮，按下凹进去。 -->
  <Style x:Key="KeyButton" TargetType="ButtonBase" BasedOn="{StaticResource ToolButton}">
   <Setter Property="Background" Value="{DynamicResource Raised}" />
   <Setter Property="BorderBrush" Value="{DynamicResource Bevel}" />
@@ -151,7 +164,7 @@
   <Setter Property="Foreground" Value="{DynamicResource OnDanger}" />
  </Style>
 
- <!-- 凸起的按键托：顶栏右侧那组按钮、底栏的格式按钮放在里面。 -->
+ <!-- 凸起的键托：顶栏、底栏和排版栏的按钮都放在里面。 -->
  <Style x:Key="KeyTray" TargetType="ContentControl">
   <Setter Property="Focusable" Value="False" />
   <Setter Property="Padding" Value="2" />
@@ -168,23 +181,24 @@
 
  <!-- 收纳标签：活页本的索引贴，右端一截压在卡片下面，只有外侧圆角。
       颜色取自那张子便签（代码把子便签的配色写进标签自己的资源）：收着时是子便签的顶栏色、字淡；
-      展开（IsChecked）时底色和子便签正文一样、字变实。往外抽出的位移由代码控制（NoteWindow.Collection）。 -->
+      展开（IsChecked）时底色和子便签正文一样、字变实。往外抽出的位移由代码控制（NoteWindow.Collection）。
+      高、外边距、内边距和字号是代码按主便签大小写在标签区上的资源（TabHeight TabMargin TabPadding TabFontSize）。 -->
  <Style x:Key="CollectionTab" TargetType="ToggleButton">
-  <Setter Property="Height" Value="30" />
-  <Setter Property="Margin" Value="12,0,0,3" />
-  <Setter Property="Padding" Value="10,0,14,0" />
-  <Setter Property="FontSize" Value="12" />
+  <Setter Property="Height" Value="{DynamicResource TabHeight}" />
+  <Setter Property="Margin" Value="{DynamicResource TabMargin}" />
+  <Setter Property="Padding" Value="{DynamicResource TabPadding}" />
+  <Setter Property="FontSize" Value="{DynamicResource TabFontSize}" />
   <Setter Property="Foreground" Value="{DynamicResource Muted}" />
   <Setter Property="Background" Value="{DynamicResource HeaderFill}" />
   <Setter Property="Cursor" Value="Hand" />
   <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
    <Grid Background="Transparent">
-    <Border Background="{DynamicResource Shade}" CornerRadius="7,0,0,7" Margin="0,1,0,-1" />
-    <Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Bevel}" BorderThickness="1,1,0,1" CornerRadius="7,0,0,7" Padding="{TemplateBinding Padding}">
+    <Border Background="{DynamicResource Shade}" CornerRadius="8,0,0,8" Margin="0,1,0,-1" />
+    <Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Bevel}" BorderThickness="1,1,0,1" CornerRadius="8,0,0,8" Padding="{TemplateBinding Padding}">
      <TextBlock x:Name="Title" Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
     </Border>
-    <Border x:Name="Hover" Background="{DynamicResource Glow}" CornerRadius="7,0,0,7" Opacity="0" />
+    <Border x:Name="Hover" Background="{DynamicResource Glow}" CornerRadius="8,0,0,8" Opacity="0" />
    </Grid>
    <ControlTemplate.Triggers>
     <Trigger Property="IsMouseOver" Value="True">
@@ -206,19 +220,20 @@
   </Style.Triggers>
  </Style>
 
- <!-- 新建收纳便签：紧跟在最后一个标签后面的虚线空标签。 -->
+ <!-- 新建收纳便签：紧跟在最后一个标签后面的虚线空标签，尺寸同样来自标签区资源（NewTabHeight NewTabMargin NewTabFontSize）。 -->
  <Style x:Key="NewTab" TargetType="Button">
-  <Setter Property="Height" Value="26" />
-  <Setter Property="Margin" Value="12,1,0,0" />
-  <Setter Property="FontSize" Value="11" />
+  <Setter Property="Height" Value="{DynamicResource NewTabHeight}" />
+  <Setter Property="Margin" Value="{DynamicResource NewTabMargin}" />
+  <Setter Property="Padding" Value="{DynamicResource TabPadding}" />
+  <Setter Property="FontSize" Value="{DynamicResource NewTabFontSize}" />
   <Setter Property="Foreground" Value="{DynamicResource Muted}" />
   <Setter Property="Cursor" Value="Hand" />
   <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
    <Grid Background="Transparent">
-    <Border x:Name="Hover" Background="{DynamicResource Subtle}" CornerRadius="7,0,0,7" Opacity="0" />
-    <Rectangle x:Name="Dash" RadiusX="7" RadiusY="7" Stroke="{DynamicResource Muted}" StrokeThickness="1" StrokeDashArray="3 2" Opacity="0.5" />
-    <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0" />
+    <Border x:Name="Hover" Background="{DynamicResource Subtle}" CornerRadius="8,0,0,8" Opacity="0" />
+    <Rectangle x:Name="Dash" RadiusX="8" RadiusY="8" Stroke="{DynamicResource Muted}" StrokeThickness="1" StrokeDashArray="3 2" Opacity="0.5" />
+    <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
    </Grid>
    <ControlTemplate.Triggers>
     <Trigger Property="IsMouseOver" Value="True">
@@ -296,29 +311,6 @@
 
  <Style x:Key="CardContact" TargetType="Border" BasedOn="{StaticResource CardShadow}">
   <Setter Property="Effect"><Setter.Value><DropShadowEffect BlurRadius="3" ShadowDepth="1" Direction="270" Opacity="0.18" /></Setter.Value></Setter>
- </Style>
-
- <!-- 顶栏上的小标签（「主便签」）：浅浅压进去。 -->
- <Style x:Key="Tag" TargetType="Border">
-  <Setter Property="Background" Value="{DynamicResource Inset}" />
-  <Setter Property="BorderBrush" Value="{DynamicResource Groove}" />
-  <Setter Property="BorderThickness" Value="1" />
-  <Setter Property="CornerRadius" Value="5" />
-  <Setter Property="Padding" Value="7,2,7,3" />
-  <Setter Property="HorizontalAlignment" Value="Left" />
-  <Setter Property="VerticalAlignment" Value="Center" />
-  <Setter Property="TextElement.FontSize" Value="11" />
-  <Setter Property="TextElement.Foreground" Value="{DynamicResource Muted}" />
- </Style>
-
- <!-- 排版栏：底栏上方一道凹槽，按「字形 | 列表 | 颜色」分组。 -->
- <Style x:Key="FormatTray" TargetType="Border">
-  <Setter Property="Background" Value="{DynamicResource Inset}" />
-  <Setter Property="BorderBrush" Value="{DynamicResource Groove}" />
-  <Setter Property="BorderThickness" Value="1" />
-  <Setter Property="CornerRadius" Value="8" />
-  <Setter Property="Padding" Value="2" />
-  <Setter Property="Margin" Value="10,0,10,2" />
  </Style>
 
  <!-- 分隔线：刻进去的一道细缝（左暗右亮）。 -->

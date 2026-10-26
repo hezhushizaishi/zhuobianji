@@ -37,7 +37,8 @@ internal partial class NoteWindow : Window
         this.controller = controller;
         desktop = new DesktopHost(this);
         Data = data;
-        collectionRailWidth = data.IsCollectionMain ? RailWidth : 0;
+        ScaleTabs(RailScale(data.Width, data.Height));
+        collectionRailWidth = data.IsCollectionMain ? Math.Round(RailWidth * railScale) : 0;
         MinWidth = MinCardWidth + CollectionRailWidth + 2 * ShadowMargin;
         MinHeight = MinCardHeight + 2 * ShadowMargin;
         Width = Math.Max(MinWidth, data.Width + CollectionRailWidth + 2 * ShadowMargin);
@@ -53,6 +54,7 @@ internal partial class NoteWindow : Window
         UpdatePinnedButton();
         InitializeSaving();
         PreviewKeyDown += OnKeyboard;
+        NoteCard.SizeChanged += OnCardResized;
         Editor.Rich.SelectionChanged += (_, _) => { if (FormatBar.IsVisible) UpdateColorBar(); };
     }
 
@@ -234,6 +236,7 @@ internal partial class NoteWindow : Window
         PlainFormatItem.IsChecked = editor.Format == NoteFormat.PlainText;
         FormatButton.Visibility = rich ? Visibility.Visible : Visibility.Collapsed;
         LinkButton.Visibility = rich || markdown ? Visibility.Visible : Visibility.Collapsed;
+        ModeSeparator.Visibility = LinkButton.Visibility;
         if (!rich) SetFormatBar(false);
         MarkdownButtons.Visibility = markdown ? Visibility.Visible : Visibility.Collapsed;
         SourceButton.IsChecked = !editor.IsPreview;

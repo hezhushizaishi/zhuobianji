@@ -13,18 +13,58 @@ namespace Zhuobianji;
 internal partial class NoteWindow
 {
     internal NoteEditor Editor => OwnEditor;
-    // 主便签左侧留给标签的透明区域宽度；Snapshot 保存的位置宽度不含这一块。
+    // 主便签左侧留给标签的透明区域；Snapshot 保存的位置宽度不含这一块。
+    // 标签区跟主便签卡片等比缩放：卡片短边约 305 时是基准尺寸（区宽 92、标签高 30），457 时 1.5 倍；按 0.1 一档，最多 1.6 倍。
+    // 标签不压矮，放不下就用滚轮滚动（滚动条隐藏，上下边缘渐隐）。
     internal const double RailWidth = 92;
-    // 标签高度：放得下时 30，标签多了逐步压到 24，再多就滚动（滚动条隐藏，上下边缘渐隐）。
-    private const double TabHeightMax = 30, TabHeightMin = 24, TabGap = 3, NewTabRoom = 27;
-    // 展开的标签往外抽出 10，悬停抽出 4。
-    private const double TabPulled = -10, TabPeek = -4;
+    private double railScale;
     private double collectionRailWidth;
-    private double tabHeight = TabHeightMax;
+    // 标签高、间距，展开时整张抽出的距离和悬停时抽出的距离；随档位换算（ScaleTabs）。
+    private double tabHeight, tabGap, tabPulled, tabPeek;
     private int railAnimationVersion;
     internal double CollectionRailWidth => collectionRailWidth;
     internal Dictionary<Guid, ToggleButton> CollectionTabButtons { get; } = [];
-    private double TabPitch => tabHeight + TabGap;
+    private double TabPitch => tabHeight + tabGap;
+    // 关闭标签时整排滑到卡片下面的距离。
+    private double RailHiddenOffset => collectionRailWidth - 8;
+
+    internal static double RailScale(double cardWidth, double cardHeight) =>
+        Math.Clamp(Math.Round(Math.Min(cardWidth, cardHeight) / 305, 1), 1, 1.6);
+
+    internal static double RailWidthFor(double cardWidth, double cardHeight) => Math.Round(RailWidth * RailScale(cardWidth, cardHeight));
+
+    // 卡片跨过一档时换算标签尺寸：高、间距、缩进、压在卡片下的一截和抽出距离一起放大，字号最大 16（和正文一样）。
+    // 样式里的尺寸引用标签区上的资源，之后新建的标签自动用当前档位。
+    private void ScaleTabs(double scale)
+    {
+        if (scale == railScale) return;
+        railScale = scale;
+        double S(double value) => Math.Round(value * scale);
+        tabHeight = S(30);
+        tabGap = S(16 / 3.0);
+        tabPulled = -S(10);
+        tabPeek = -S(4);
+        var tuck = S(10);
+        RailViewport.Margin = new Thickness(0, 48, -tuck, 6);
+        var resources = CollectionRail.Resources;
+        resources["TabHeight"] = tabHeight;
+        resources["TabMargin"] = new Thickness(S(12), 0, 0, tabGap);
+        resources["TabPadding"] = new Thickness(S(10), 0, tuck + S(4), 0);
+        resources["TabFontSize"] = Math.Min(16, S(12));
+        resources["NewTabHeight"] = S(26);
+        resources["NewTabMargin"] = new Thickness(S(12), 0, 0, 0);
+        resources["NewTabFontSize"] = Math.Min(14, S(11));
+        foreach (ToggleButton tab in CollectionTabs.Children) PullTab(tab);
+    }
+
+    // 标签区宽度跟着档位走。改宽度要同时移动窗口左边，所以拖动缩放时等松手再改（NoteWindow.Saving 的 WM_EXITSIZEMOVE）。
+    private void FitRailWidth() => SetRailWidth(Data.IsCollectionMain ? Math.Round(RailWidth * railScale) : 0);
+
+    private void OnCardResized(object sender, SizeChangedEventArgs e)
+    {
+        ScaleTabs(RailScale(e.NewSize.Width, e.NewSize.Height));
+        if (!moving) FitRailWidth();
+    }
 
     private void SetRailWidth(double width)
     {
@@ -50,7 +90,7 @@ internal partial class NoteWindow
     private void ApplyCollectionMain()
     {
         StopRailAnimation();
-        SetRailWidth(Data.IsCollectionMain ? RailWidth : 0);
+        FitRailWidth();
     }
 
     private void OnToggleRail(object sender, RoutedEventArgs e)
@@ -68,11 +108,11 @@ internal partial class NoteWindow
             RailTranslation.X = fromOffset;
             CollectionRail.Visibility = Visibility.Visible;
             var version = railAnimationVersion;
-            var remaining = Math.Abs((show ? 0 : 84) - fromOffset) / 84;
+            var remaining = Math.Min(1, Math.Abs((show ? 0 : RailHiddenOffset) - fromOffset) / RailHiddenOffset);
             var duration = TimeSpan.FromMilliseconds(Math.Max(70, (show ? 220 : 170) * remaining));
             var easing = new CubicEase { EasingMode = show ? EasingMode.EaseOut : EasingMode.EaseInOut };
             var fade = new DoubleAnimation(fromOpacity, show ? 1 : 0, duration) { EasingFunction = easing };
-            var slide = new DoubleAnimation(fromOffset, show ? 0 : 84, duration) { EasingFunction = easing };
+            var slide = new DoubleAnimation(fromOffset, show ? 0 : RailHiddenOffset, duration) { EasingFunction = easing };
             fade.Completed += (_, _) =>
             {
                 if (version != railAnimationVersion) return;
@@ -92,7 +132,7 @@ internal partial class NoteWindow
             ? Visibility.Visible : Visibility.Collapsed;
         CollectItem.Visibility = !Data.IsCollectionMain && Data.CollectedBy is null && main is not null
             ? Visibility.Visible : Visibility.Collapsed;
-        MainTag.Visibility = Data.IsCollectionMain ? Visibility.Visible : Visibility.Collapsed;
+        MainTray.Visibility = Data.IsCollectionMain ? Visibility.Visible : Visibility.Collapsed;
         CloseButton.ToolTip = Data.IsCollectionMain ? "关闭主便签（Ctrl+W）"
             : Data.CollectedBy is not null ? "收起便签（Ctrl+W）" : "关闭便签（Ctrl+W）";
         DeleteButton.ToolTip = Data.IsCollectionMain ? "删除主便签，收纳的便签会释放到桌面" : "删除便签";
@@ -101,18 +141,16 @@ internal partial class NoteWindow
         if (!CollectionRail.HasAnimatedProperties)
         {
             CollectionRail.Opacity = railVisible ? 1 : 0;
-            RailTranslation.X = railVisible ? 0 : 84;
+            RailTranslation.X = railVisible ? 0 : RailHiddenOffset;
         }
         CollectionRail.Visibility = Data.IsCollectionMain && (railVisible || CollectionRail.HasAnimatedProperties)
             ? Visibility.Visible : Visibility.Collapsed;
         CollectionRail.IsHitTestVisible = railVisible;
-        CollectionRailToggle.Visibility = Data.IsCollectionMain ? Visibility.Visible : Visibility.Collapsed;
         CollectionRailToggle.IsChecked = Data.ShowCollectionRail;
         CollectionRailToggle.ToolTip = Data.ShowCollectionRail ? "隐藏左侧标签" : "显示左侧标签";
         if (!Data.IsCollectionMain) return;
 
         var children = controller.CollectedNotes(this).ToArray();
-        var countBefore = CollectionTabButtons.Count;
         // 文字和显示状态更新只修改现有标签；移动窗口不重建整排控件。
         foreach (var id in CollectionTabButtons.Keys.Where(id => children.All(child => child.Data.Id != id)).ToArray())
         {
@@ -124,7 +162,7 @@ internal partial class NoteWindow
             if (!CollectionTabButtons.TryGetValue(child.Data.Id, out var tab))
             {
                 tab = new ToggleButton { Style = (Style)FindResource("CollectionTab"), Tag = child.Data.Id,
-                    Height = tabHeight, RenderTransform = new TranslateTransform(), ToolTip = "" };
+                    RenderTransform = new TranslateTransform(), ToolTip = "" };
                 ToolTipService.SetPlacement(tab, PlacementMode.Left);
                 ToolTipService.SetInitialShowDelay(tab, 450);
                 tab.Click += (_, _) => { controller.ToggleCollectedNote(child); RefreshCollectionState(); };
@@ -160,12 +198,11 @@ internal partial class NoteWindow
             CollectionTabs.Children.Remove(tab);
             CollectionTabs.Children.Insert(index, tab);
         }
-        if (CollectionTabButtons.Count != countBefore) FitCollectionTabs();
     }
 
     // 展开的标签整张抽出，悬停时抽出一点。
     private void PullTab(ToggleButton tab) => SlideTab(tab, TranslateTransform.XProperty,
-        tab.IsChecked == true ? TabPulled : tab.IsMouseOver ? TabPeek : 0, NoteTheme.Standard);
+        tab.IsChecked == true ? tabPulled : tab.IsMouseOver ? tabPeek : 0, NoteTheme.Standard);
 
     // 标签的位移动画：X 是往外抽，Y 是拖动排序时让位。目标没变就不重新开始，连续的 DragOver 不会让动画一直拖着。
     private static void SlideTab(UIElement tab, DependencyProperty axis, double target, Duration duration)
@@ -175,23 +212,6 @@ internal partial class NoteWindow
         var from = (double)shift.GetValue(axis);
         shift.SetValue(axis, target);
         shift.BeginAnimation(axis, new DoubleAnimation(from, target, duration) { EasingFunction = NoteTheme.Ease });
-    }
-
-    private void OnCollectionResized(object sender, SizeChangedEventArgs e)
-    {
-        if (e.HeightChanged) FitCollectionTabs();
-    }
-
-    // 标签多到放不下时先压矮（最矮 24），仍放不下才需要滚动。
-    private void FitCollectionTabs()
-    {
-        var count = CollectionTabs.Children.Count;
-        var room = CollectionScroll.ActualHeight - NewTabRoom;
-        if (count == 0 || room <= 0) return;
-        var height = Math.Clamp(Math.Floor(room / count) - TabGap, TabHeightMin, TabHeightMax);
-        if (height == tabHeight && CollectionTabs.Children.OfType<FrameworkElement>().All(tab => tab.Height == height)) return;
-        tabHeight = height;
-        foreach (FrameworkElement tab in CollectionTabs.Children) tab.Height = height;
     }
 
     // 能往上或往下滚时，对应的边缘渐隐，提示还有标签。
