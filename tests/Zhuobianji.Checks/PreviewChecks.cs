@@ -145,6 +145,22 @@ internal static partial class Program
             PreviewPart("menu.png", menu);
             menu.IsOpen = false;
 
+            // 托盘菜单和弹窗：和便签同一套配色、菜单和按键。
+            var tray = controller.Tray!;
+            tray.Rebuild();
+            tray.Menu.Placement = PlacementMode.AbsolutePoint;
+            tray.Menu.HorizontalOffset = rich.Left + 40;
+            tray.Menu.VerticalOffset = rich.Top + 40;
+            tray.Menu.IsOpen = true;
+            await Task.Delay(300);
+            PreviewPart("tray-menu.png", tray.Menu);
+            tray.Menu.IsOpen = false;
+            await PreviewDialog("settings.png", controller.ShowSettings(rich));
+            await PreviewDialog("settings-dark.png", controller.ShowSettings(dark));
+            await PreviewDialog("confirm.png", new MessageDialog(rich.Data.Appearance, "删除便签", "这张便签会永久删除，无法撤销。", "删除",
+                confirm: true, danger: true, width: 400) { Owner = rich });
+            await PreviewDialog("link-dialog.png", new LinkWindow(dark.Data.Appearance, "https://example.com/docs/start") { Owner = dark });
+
             var backdrop = new Window { Left = rich.Left - 40, Top = rich.Top - 40, Width = rich.Width + 80, Height = rich.Height + 80,
                 Topmost = true, WindowStyle = WindowStyle.None, ShowInTaskbar = false, Background = NoteTheme.B("#E7ECEE") };
             backdrop.Show();
@@ -156,7 +172,7 @@ internal static partial class Program
             backdrop.Close();
             controller.RequestExit();
         }
-        Console.WriteLine("已生成 collection.png、formats.png、links.png、rail.png 和细节图；未使用正式 Data。");
+        Console.WriteLine("已生成 collection.png、formats.png、links.png、rail.png 和细节图（含托盘菜单和弹窗）；未使用正式 Data。");
     }
 
     private static double RailTop(NoteWindow main, FrameworkElement element) =>
@@ -168,6 +184,15 @@ internal static partial class Program
         window.Width = width + 2 * NoteWindow.ShadowMargin;
         window.Height = height + 2 * NoteWindow.ShadowMargin;
         window.ApplyAppearance(new NoteAppearance { Palette = palette });
+    }
+
+    // 弹窗连同四周的阴影一起拍，等出现动画播完。
+    private static async Task PreviewDialog(string name, Window dialog)
+    {
+        if (!dialog.IsVisible) dialog.Show();
+        await Task.Delay(300);
+        PreviewPart(name, dialog);
+        dialog.Close();
     }
 
     private static void PreviewPart(string name, FrameworkElement part)

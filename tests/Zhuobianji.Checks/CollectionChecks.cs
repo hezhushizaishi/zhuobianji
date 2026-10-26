@@ -22,14 +22,14 @@ internal static partial class Program
         var reached = false;
         _ = main.Dispatcher.BeginInvoke(() =>
         {
-            var dialog = Application.Current.Windows.OfType<Wpf.Ui.Controls.MessageBox>().Single();
-            var content = (StackPanel)dialog.Content;
+            var dialog = Application.Current.Windows.OfType<MessageDialog>().Single();
+            var content = (StackPanel)dialog.Body;
             content.Children.OfType<CheckBox>().Single().IsChecked = true;
             dialog.UpdateLayout();
             CaptureDialog(dialog, Path.Combine(root, accept ? "format-acknowledge.png" : "format-cancel.png"));
             reached = true;
             if (accept)
-                dialog.TemplateButtonCommand.Execute(Wpf.Ui.Controls.MessageBoxButton.Primary);
+                dialog.PrimaryButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
             else ((Window)dialog).Close();
         });
         main.PlainFormatItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));

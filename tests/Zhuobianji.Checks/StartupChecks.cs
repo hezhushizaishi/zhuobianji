@@ -39,9 +39,8 @@ internal static partial class Program
                     $"不透明度 {value:0}% 可应用、保存并重新读取");
             }
             Check(settings.Opacity == 1, "便签全透明不影响独立设置窗口，可从设置恢复");
-            settings.SettingsTabs.SelectedIndex = 1;
-            settings.UpdateLayout();
-            Capture(settings, Path.Combine(root, "settings-data.png"));
+            settings.ProgramTab.IsChecked = true;
+            CaptureDialog(settings, Path.Combine(root, "settings-data.png"));
             Check(controller.RequestExit(), "正常退出保存显示状态");
         }
         using (var store = new NoteStore(directory))

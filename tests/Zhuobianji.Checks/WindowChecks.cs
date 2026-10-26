@@ -75,20 +75,22 @@ internal static partial class Program
             Capture(note, Path.Combine(root, "note-header.png"));
             var settings = controller.ShowSettings(note);
             await Task.Delay(80);
-            Capture(settings, Path.Combine(root, "settings-short.png"));
-            using var tray = new TrayMenu(controller);
-            Check(tray.StartupItem.Text == "开机自启" && !tray.StartupItem.Checked, "托盘有实际自启状态的勾选项");
-            tray.StartupItem.PerformClick();
+            CaptureDialog(settings, Path.Combine(root, "settings-short.png"));
+            var tray = controller.Tray!;
+            Check(tray.IsCreated && tray.Menu.Background == NoteTheme.For(controller.Preferences.Appearance).Surface &&
+                tray.Menu.Items.OfType<System.Windows.Controls.MenuItem>().Count(item => item.Icon is not null) >= 10, "托盘图标已创建，菜单和便签菜单同一样式并带图标");
+            Check(Equals(tray.StartupItem.Header, "开机自启") && !tray.StartupItem.IsChecked, "托盘有实际自启状态的勾选项");
+            tray.StartupItem.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent));
             await Task.Delay(80);
-            Check(startup.IsEnabled && tray.StartupItem.Checked && settings.StartupSwitch.IsChecked == true,
+            Check(startup.IsEnabled && tray.StartupItem.IsChecked && settings.StartupSwitch.IsChecked == true,
                 "托盘开启自启，设置开关同步");
-            tray.StartupItem.PerformClick();
+            tray.StartupItem.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent));
             await Task.Delay(80);
-            Check(!startup.IsEnabled && !tray.StartupItem.Checked && settings.StartupSwitch.IsChecked == false,
+            Check(!startup.IsEnabled && !tray.StartupItem.IsChecked && settings.StartupSwitch.IsChecked == false,
                 "托盘关闭自启，设置开关同步");
             settings.StartupSwitch.IsChecked = true;
             tray.Rebuild();
-            Check(tray.StartupItem.Checked, "设置开启后再次打开托盘菜单显示勾选");
+            Check(tray.StartupItem.IsChecked, "设置开启后再次打开托盘菜单显示勾选");
             controller.RequestExit();
         }
         finally

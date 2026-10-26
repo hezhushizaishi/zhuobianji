@@ -41,7 +41,7 @@ internal static partial class Program
         note.CloseButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         Check(!note.IsVisible && note.Data.IsHidden && controller.Notes.ContainsKey(note.Data.Id) &&
             store.LoadAll().Notes.Single(data => data.Id == note.Data.Id).Text.Contains("关闭前刚写") &&
-            !Application.Current.Windows.OfType<Wpf.Ui.Controls.MessageBox>().Any(),
+            !Application.Current.Windows.OfType<MessageDialog>().Any(),
             "普通便签 × 立即保存并隐藏，不弹删除框、不删除数据");
         var closeBackup = JsonSerializer.Deserialize<NoteData>(File.ReadAllText(store.GetPath(note.Data.Id) + ".bak"));
         Check(SameNoteData(closeBackup, beforeClose),

@@ -1,80 +1,86 @@
 using System;
-using System.Drawing;
-using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media.Imaging;
+using H.NotifyIcon;
 using Zhuobianji.Core;
-using Forms = System.Windows.Forms;
+using SymbolIcon = Wpf.Ui.Controls.SymbolIcon;
+using SymbolRegular = Wpf.Ui.Controls.SymbolRegular;
 
 namespace Zhuobianji;
 
+// 托盘图标和右键菜单。菜单是 WPF 菜单，和便签菜单同一套样式（NoteStyles.xaml），配色用默认外观；每次打开前按当前状态重建。
 internal sealed class TrayMenu : IDisposable
 {
     private readonly NoteController controller;
-    private readonly Forms.NotifyIcon icon;
-    private readonly Forms.ContextMenuStrip menu = new();
-    private readonly Icon trayIcon;
-    internal Forms.ToolStripMenuItem StartupItem { get; private set; } = null!;
+    private readonly TaskbarIcon icon;
+    private readonly ContextMenu menu = new();
+    internal MenuItem StartupItem { get; private set; } = null!;
+    internal ContextMenu Menu => menu;
+    internal bool IsCreated => icon.IsCreated;
 
     internal TrayMenu(NoteController controller)
     {
         this.controller = controller;
-        using var stream = typeof(TrayMenu).Assembly.GetManifestResourceStream("Zhuobianji.Icon")!;
-        trayIcon = new Icon(stream);
-        icon = new Forms.NotifyIcon { Icon = trayIcon, Text = "桌边记 · 双击找回所有便签", ContextMenuStrip = menu, Visible = true };
-        icon.DoubleClick += (_, _) => Dispatch(controller.ShowAll);
-        menu.Opening += (_, _) => Rebuild();
+        menu.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/Zhuobianji;component/Theme/NoteStyles.xaml", UriKind.Relative) });
+        menu.Style = (Style)menu.FindResource(typeof(ContextMenu));
+        icon = new TaskbarIcon
+        {
+            IconSource = BitmapFrame.Create(new Uri("pack://application:,,,/Zhuobianji;component/Assets/zhuobianji.ico")),
+            ToolTipText = "桌边记 · 双击找回所有便签", ContextMenu = menu
+        };
+        icon.TrayLeftMouseDoubleClick += (_, _) => controller.ShowAll();
+        icon.PreviewTrayContextMenuOpen += (_, _) => Rebuild();
         Rebuild();
+        // 不放进窗口，要手动创建；不开「效率模式」，否则整个程序会被系统降速。
+        icon.ForceCreate(enablesEfficiencyMode: false);
     }
 
     internal void Rebuild()
     {
-        foreach (Forms.ToolStripItem item in menu.Items.Cast<Forms.ToolStripItem>().ToArray()) item.Dispose();
+        NoteTheme.For(controller.Preferences.Appearance).ApplyTo(menu.Resources);
         menu.Items.Clear();
-        Add(menu.Items, "新建便签", () => controller.CreateNote());
-        Add(menu.Items, "新建 Markdown 便签", () => controller.CreateNote(format: NoteFormat.Markdown));
-        Add(menu.Items, "新建纯文本便签", () => controller.CreateNote(format: NoteFormat.PlainText));
-        Add(menu.Items, "设置…", () => controller.ShowSettings());
-        StartupItem = new Forms.ToolStripMenuItem("开机自启");
-        StartupItem.Enabled = controller.TryReadStartup(out var startupEnabled, out _);
-        StartupItem.Checked = startupEnabled;
+        Add(menu.Items, "新建便签", SymbolRegular.Add20, () => controller.CreateNote());
+        Add(menu.Items, "新建 Markdown 便签", SymbolRegular.Markdown20, () => controller.CreateNote(format: NoteFormat.Markdown));
+        Add(menu.Items, "新建纯文本便签", SymbolRegular.TextT20, () => controller.CreateNote(format: NoteFormat.PlainText));
+        menu.Items.Add(new Separator());
+        Add(menu.Items, "设置…", SymbolRegular.Settings20, () => controller.ShowSettings());
+        StartupItem = new MenuItem { Header = "开机自启", IsEnabled = controller.TryReadStartup(out var startupEnabled, out _), IsChecked = startupEnabled };
         StartupItem.Click += (_, _) => Dispatch(() =>
         {
             if (controller.TryReadStartup(out var current, out var error) && controller.TrySetStartup(!current, out error))
-                StartupItem.Checked = !current;
+                StartupItem.IsChecked = !current;
             else Dialogs.Show(error);
         });
         menu.Items.Add(StartupItem);
-        if (controller.MainNote is { } main) Add(menu.Items, "打开收纳", () => controller.ShowNote(main));
-        Add(menu.Items, "显示所有便签", controller.ShowAll);
-        Add(menu.Items, "隐藏所有便签", controller.HideAll);
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        Add(menu.Items, "全部贴到桌面", () => controller.SetAllDesktopModes(true));
-        Add(menu.Items, "全部恢复普通浮窗", () => controller.SetAllDesktopModes(false));
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        var notes = new Forms.ToolStripMenuItem($"便签（{controller.Notes.Count}）");
+        menu.Items.Add(new Separator());
+        if (controller.MainNote is { } main) Add(menu.Items, "打开收纳", SymbolRegular.PanelLeft20, () => controller.ShowNote(main));
+        Add(menu.Items, "显示所有便签", SymbolRegular.WindowMultiple20, controller.ShowAll);
+        Add(menu.Items, "隐藏所有便签", SymbolRegular.EyeOff20, controller.HideAll);
+        menu.Items.Add(new Separator());
+        Add(menu.Items, "全部贴到桌面", SymbolRegular.Desktop20, () => controller.SetAllDesktopModes(true));
+        Add(menu.Items, "全部恢复普通浮窗", SymbolRegular.Window20, () => controller.SetAllDesktopModes(false));
+        menu.Items.Add(new Separator());
+        var notes = new MenuItem { Header = $"便签（{controller.Notes.Count}）", Icon = new SymbolIcon { Symbol = SymbolRegular.Notepad20 } };
+        // 预览文字放进 TextBlock，下划线不会被当成快捷键标记。
         foreach (var note in controller.Notes.Values)
-            Add(notes.DropDownItems, (note.Data.CollectedBy is not null ? "收纳 · " : note.Data.IsHidden ? "隐藏 · " : "") + note.Data.Preview, () => controller.ShowNote(note));
-        notes.Enabled = controller.Notes.Count > 0;
+            Add(notes.Items, new TextBlock { Text = (note.Data.CollectedBy is not null ? "收纳 · " : note.Data.IsHidden ? "隐藏 · " : "") + note.Data.Preview,
+                MaxWidth = 280, TextTrimming = TextTrimming.CharacterEllipsis },
+                null, () => controller.ShowNote(note));
+        notes.IsEnabled = controller.Notes.Count > 0;
         menu.Items.Add(notes);
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        Add(menu.Items, "退出程序", () => controller.RequestExit());
+        menu.Items.Add(new Separator());
+        Add(menu.Items, "退出程序", SymbolRegular.Power20, () => controller.RequestExit());
     }
 
-    private static void Add(Forms.ToolStripItemCollection items, string text, Action action)
+    private static void Add(ItemCollection items, object header, SymbolRegular? symbol, Action action)
     {
-        var item = new Forms.ToolStripMenuItem(text);
+        var item = new MenuItem { Header = header, Icon = symbol is { } value ? new SymbolIcon { Symbol = value } : null };
         item.Click += (_, _) => Dispatch(action);
         items.Add(item);
     }
 
     private static void Dispatch(Action action) => Application.Current.Dispatcher.BeginInvoke(action);
 
-    public void Dispose()
-    {
-        icon.Visible = false;
-        icon.Dispose();
-        menu.Dispose();
-        trayIcon.Dispose();
-    }
-
+    public void Dispose() => icon.Dispose();
 }

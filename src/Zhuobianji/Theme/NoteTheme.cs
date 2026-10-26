@@ -4,8 +4,6 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using Wpf.Ui.Appearance;
-using Wpf.Ui.Markup;
 using Zhuobianji.Core;
 
 namespace Zhuobianji;
@@ -15,8 +13,10 @@ namespace Zhuobianji;
 internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header, SolidColorBrush Text, SolidColorBrush Muted,
     SolidColorBrush Border, SolidColorBrush Accent, SolidColorBrush Code, SolidColorBrush Link)
 {
-    internal static readonly (string Key, string Name)[] Palettes =
-        [("mist", "雾蓝"), ("cream", "奶油白"), ("yellow", "淡黄"), ("green", "浅绿"), ("pink", "浅粉"), ("neutral", "中性灰")];
+    // 配色：键、名称和设置里色块的颜色。便签底色都很浅，色块用同色相、更饱和的一档，几个放在一起才分得清。
+    internal static readonly (string Key, string Name, SolidColorBrush Swatch)[] Palettes =
+        [("mist", "雾蓝", B("#B7CFE8")), ("cream", "奶油白", B("#EFE2BC")), ("yellow", "淡黄", B("#F4D873")),
+         ("green", "浅绿", B("#BEDBAF")), ("pink", "浅粉", B("#EFC3CC")), ("neutral", "中性灰", B("#D4D6D9"))];
 
     // 富文本「文字颜色」菜单；第一项「默认文字」使用当前主题的正文色。
     internal static readonly (string Name, SolidColorBrush Brush)[] TextColors =
@@ -62,6 +62,19 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
         shift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(rise, 0, Standard) { EasingFunction = Ease });
     }
 
+    // 弹窗出现：淡入，同时从 0.97 放大到原大（快速时长）。
+    internal static void Pop(UIElement element)
+    {
+        if (!Animate) return;
+        var scale = new ScaleTransform();
+        element.RenderTransform = scale;
+        element.RenderTransformOrigin = new Point(0.5, 0.5);
+        element.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation { From = 0, Duration = Fast, EasingFunction = Ease });
+        var grow = new DoubleAnimation(0.97, 1, Fast) { EasingFunction = Ease };
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
+    }
+
     // 可滚动区域的边缘渐隐：上面或下面还有内容时，那一侧 24px 淡出。都没有时不加遮罩。
     internal static Brush? FadeMask(double height, bool top, bool bottom)
     {
@@ -91,6 +104,22 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
         color == For(new NoteAppearance()).Text.Color || color == For(new NoteAppearance { Dark = true }).Text.Color;
     internal static bool IsThemeLink(Color color) => LegacyLink.Contains(color) ||
         color == For(new NoteAppearance()).Link.Color || color == For(new NoteAppearance { Dark = true }).Link.Color;
+
+    // Markdown 和网页粘贴生成的代码底色、引用文字色、表格和分隔线边框也跟随主题：存储里保留原值（代码块靠底色识别），
+    // 读取、粘贴和换主题时换成当前主题的颜色（FormattedDocuments.ApplyReadingLayout）。改这三种颜色时把旧值加进对应的判断。
+    internal static bool IsThemeCode(Color color) => EitherTheme(theme => theme.Code.Color == color);
+    internal static bool IsThemeMuted(Color color) => EitherTheme(theme => theme.Muted.Color == color);
+    internal static bool IsThemeBorder(Color color) => EitherTheme(theme => theme.Border.Color == color);
+    private static bool EitherTheme(Func<NoteTheme, bool> test) => test(For(new NoteAppearance())) || test(For(new NoteAppearance { Dark = true }));
+
+    // 网页和其他程序粘贴来的近黑、近白、几乎没有彩色的文字色和底色，是原页面的配色，不是有意的颜色：
+    // 粘进便签时去掉，改为跟随主题，否则深色便签里会黑字压深底。有颜色的（标红、高亮）照样保留。
+    internal static bool IsPageNeutral(Color color)
+    {
+        var spread = Math.Max(color.R, Math.Max(color.G, color.B)) - Math.Min(color.R, Math.Min(color.G, color.B));
+        var light = (0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B) / 255;
+        return spread < 48 && (light < 0.35 || light > 0.75);
+    }
 
     private static readonly Dictionary<(string Palette, bool Dark), NoteTheme> Cache = [];
 
@@ -170,16 +199,6 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
         resources["Danger"] = Danger;
         resources["OnDanger"] = OnDanger;
         resources["Error"] = Error;
-    }
-
-    // 设置、链接和确认框使用 WPF UI 控件，深浅色跟随便签。
-    internal static void ApplyFluent(ResourceDictionary resources, bool dark)
-    {
-        var theme = new ThemesDictionary { Theme = dark ? ApplicationTheme.Dark : ApplicationTheme.Light };
-        var index = resources.MergedDictionaries.ToList().FindIndex(dictionary => dictionary is ThemesDictionary);
-        if (index >= 0) resources.MergedDictionaries[index] = theme;
-        else resources.MergedDictionaries.Insert(0, theme);
-        if (!resources.MergedDictionaries.OfType<ControlsDictionary>().Any()) resources.MergedDictionaries.Add(new ControlsDictionary());
     }
 
     internal static SolidColorBrush B(string value)

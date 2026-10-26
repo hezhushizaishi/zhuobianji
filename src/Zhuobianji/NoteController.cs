@@ -18,6 +18,7 @@ internal sealed partial class NoteController : IDisposable
     private readonly bool enableHotkeys;
     private GlobalHotkeys? hotkeys;
     internal Dictionary<Guid, NoteWindow> Notes { get; } = [];
+    internal TrayMenu? Tray => tray;
     internal NotePreferences Preferences { get; private set; } = new();
     internal string DataDirectory => store.DirectoryPath;
 

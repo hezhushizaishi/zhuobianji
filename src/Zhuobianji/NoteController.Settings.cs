@@ -54,6 +54,8 @@ internal sealed partial class NoteController
         if (settings is not null && settings.TargetNote == note) { settings.Activate(); return settings; }
         settings?.Close();
         var window = new SettingsWindow(this, note);
+        if (note is { IsVisible: true }) window.PlaceBeside(note);
+        else window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         settings = window;
         window.Closed += (_, _) => { if (ReferenceEquals(settings, window)) settings = null; };
         window.Show();

@@ -40,13 +40,18 @@ internal static partial class Program
             var settings = controller.ShowSettings(note);
             await Task.Delay(100);
             settings.UpdateLayout();
-            Capture(settings, Path.Combine(root, "settings-light.png"));
-            settings.PaletteBox.SelectedIndex = 2;
+            CaptureDialog(settings, Path.Combine(root, "settings-light.png"));
+            var noteCard = note.Snapshot();
+            Check(settings.Left + NoteWindow.ShadowMargin >= noteCard.Left + noteCard.Width || settings.Left + settings.Width - NoteWindow.ShadowMargin <= noteCard.Left,
+                "设置窗口在所属便签旁边打开，不盖住便签");
+            settings.PaletteItems[2].IsChecked = true;
             settings.SizeSlider.Value = 20;
             settings.OpacitySlider.Value = 85;
             settings.DarkSwitch.IsChecked = true;
             Check(note.Data.Appearance.Palette == "yellow" && note.Data.Appearance.FontSize == 20 && note.Data.Appearance.Opacity == 0.85 && note.Data.Appearance.Dark &&
                 note.Editor.TextContent == "设置调整前的文字与格式", "设置控件即时应用配色、字号、透明度和深色，不改便签文字");
+            Check(settings.Resources["Surface"] == NoteTheme.For(note.Data.Appearance).Surface && settings.PaletteLabel.Text == "淡黄",
+                "设置窗口跟着换成便签的新配色，色块旁显示配色名称");
             settings.StartupSwitch.IsChecked = true;
             Check(startup.IsEnabled, "设置窗口开关实际开启自启");
             settings.StartupSwitch.IsChecked = false;
@@ -56,13 +61,13 @@ internal static partial class Program
             Check(!note.IsDirty && store.LoadAll().Notes.Single().Appearance == note.Data.Appearance && store.LoadPreferences().Appearance == note.Data.Appearance,
                 "外观自动保存，默认样式按钮保存设置");
             settings.UpdateLayout();
-            Capture(settings, Path.Combine(root, "settings-dark.png"));
+            CaptureDialog(settings, Path.Combine(root, "settings-dark.png"));
             Check(ReferenceEquals(settings, controller.ShowSettings(note)), "重复打开复用同一设置窗口");
-            settings.SettingsTabs.SelectedIndex = 1;
+            settings.ProgramTab.IsChecked = true;
             settings.UpdateLayout();
             Check(settings.DataPath.IsVisible && settings.DataPath.Text == store.DirectoryPath,
                 "程序与数据页面完整显示实际路径");
-            Capture(settings, Path.Combine(root, "settings-data-dark.png"));
+            CaptureDialog(settings, Path.Combine(root, "settings-data-dark.png"));
             settings.Close();
             var reopened = controller.ShowSettings(note);
             Check(reopened.SizeSlider.Value == 20 && reopened.DarkSwitch.IsChecked == true && reopened.StartupSwitch.IsChecked == false,

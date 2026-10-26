@@ -104,6 +104,33 @@ internal static partial class Program
             Elements(pastedAcross).OfType<Run>().All(run => Shown(run) == NoteTheme.For(appearance).Text.Color),
             "深色便签的文字粘到浅色便签，改用浅色主题的正文色");
 
+        // Markdown 转成的代码块、引用和表格：底色、引用文字色和边框跟随深浅色，存储后换个主题重开也跟随。
+        var blocks = new NoteEditor();
+        blocks.Initialize(new NoteData { Format = NoteFormat.Markdown, Text = "> 引用\n\n```\ncode\n```\n\n| a | b |\n| - | - |\n| 1 | 2 |", Appearance = appearance });
+        blocks.ChangeFormat(NoteFormat.RichText);
+        blocks.ApplyAppearance(dark);
+        bool Follows(FlowDocument document, NoteTheme theme) =>
+            Elements(document).OfType<Paragraph>().Any(paragraph => paragraph.Background is SolidColorBrush code && code.Color == theme.Code.Color) &&
+            Elements(document).OfType<Section>().Any(quote => Shown(quote) == theme.Muted.Color && ((SolidColorBrush)quote.BorderBrush).Color == theme.Border.Color) &&
+            Elements(document).OfType<TableCell>().Any() &&
+            Elements(document).OfType<TableCell>().All(cell => ((SolidColorBrush)cell.BorderBrush).Color == theme.Border.Color);
+        Check(Follows(blocks.Rich.Document, NoteTheme.For(dark)), "Markdown 转成的代码块、引用和表格换成深色后跟着变");
+        var blocksReloaded = new NoteEditor();
+        blocksReloaded.Initialize(new NoteData { Format = NoteFormat.RichText, Text = blocks.TextContent,
+            RichText = blocks.Snapshot(new NoteData()).RichText, Appearance = appearance });
+        Check(Follows(blocksReloaded.Rich.Document, NoteTheme.For(appearance)) && DocumentText.Markdown(blocksReloaded.Rich.Document).Contains("```"),
+            "深色下存的代码块、引用和表格在浅色便签重开后按浅色显示，代码块仍认得出");
+
+        // 网页的黑字白底粘到深色便签：去掉原页面的配色，跟随主题；有颜色的字保留。
+        var darkPaste = new NoteEditor();
+        darkPaste.Initialize(new NoteData { Format = NoteFormat.RichText, Text = "", Appearance = dark });
+        var webColors = LoadPaste(darkPaste.PreparePaste(new DataObject(DataFormats.Html,
+            "<p><span style='color: rgb(31, 35, 40); background-color: rgb(255, 255, 255)'>网页黑字</span><span style='color: #C95555'>红字</span></p>")));
+        var webRuns = Elements(webColors).OfType<Run>().Where(run => run.Text.Length > 0).ToArray();
+        Check(webRuns.Length == 2 && Shown(webRuns[0]) == NoteTheme.For(dark).Text.Color && Shown(webRuns[1]) == red &&
+            Elements(webColors).All(element => element.Background is null),
+            "网页的黑字白底粘到深色便签改为跟随主题，标红的字保留");
+
         // 便签字体本身是 Consolas 时，只有显式设成等宽字体的部分才算代码。
         var mono = new NoteEditor();
         var monoAppearance = appearance with { FontFamily = "Consolas" };

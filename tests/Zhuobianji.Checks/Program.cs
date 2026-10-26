@@ -130,10 +130,14 @@ internal static partial class Program
         SavePng(window.Content as FrameworkElement ?? (FrameworkElement)VisualTreeHelper.GetChild(window, 0), path);
     }
 
+    // 弹窗出现时有一段淡入放大，截图直接用最终的样子。
     private static void CaptureDialog(Window dialog, string path)
     {
         dialog.UpdateLayout();
-        SavePng((FrameworkElement)VisualTreeHelper.GetChild(dialog, 0), path);
+        var card = (FrameworkElement)VisualTreeHelper.GetChild(dialog, 0);
+        card.BeginAnimation(UIElement.OpacityProperty, null);
+        card.RenderTransform = Transform.Identity;
+        SavePng(card, path);
     }
 
     private static void SavePng(FrameworkElement visual, string path)

@@ -37,7 +37,7 @@ internal static partial class Program
         note.SaveNow();
         Check(File.Exists(store.GetPath(note.Data.Id) + ".bak"), "删除前确有上一版保存副本");
         var settings = controller.ShowSettings(note);
-        settings.SettingsTabs.SelectedIndex = 2;
+        settings.HotkeyTab.IsChecked = true;
         await Task.Delay(100);
         settings.UpdateLayout();
         Check(settings.NewNoteHotkey.IsVisible && settings.NewNoteHotkey.Text == "Ctrl+Alt+Shift+F8", "设置的快捷键页显示已保存组合");

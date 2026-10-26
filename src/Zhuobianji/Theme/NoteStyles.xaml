@@ -11,8 +11,8 @@
   <ResourceDictionary Source="pack://application:,,,/Wpf.Ui;component/Resources/Fonts.xaml" />
  </ResourceDictionary.MergedDictionaries>
 
- <!-- 规范：图标 16px（20 号字形）；按钮高 28、圆角 6，键托、卡片和弹窗圆角 8，便签 10；间距取 4 / 8 / 12 / 16；
-      说明文字 11 号，按钮和菜单 12 号。键盘焦点画一圈描边。
+ <!-- 规范：图标 16px（20 号字形）；按钮高 28、圆角 6（弹窗里的按键和输入框高 30），键托、卡片和弹窗圆角 8，便签 10；
+      间距取 4 / 8 / 12 / 16；说明文字 11 号，按钮和菜单 12 号，弹窗正文 13 号。键盘焦点画一圈描边。
       立体感只有一种做法：光从上方来，凸起的东西上沿亮、下沿一道暗边（Raised + Bevel + 下方 1px Shade）。
       便签上能点的按钮都放在键托（KeyTray）上：顶栏左右各一个、底栏左右各一个、排版栏一个，离卡片边缘都是 6。
       托里的按键平时是平的，悬停浮起（NoteTheme.Fast 淡入），按下和开启时凹进去；凹只表示按下或开启，不拿来装饰。
@@ -125,7 +125,9 @@
  <Style x:Key="KeyButton" TargetType="ButtonBase" BasedOn="{StaticResource ToolButton}">
   <Setter Property="Background" Value="{DynamicResource Raised}" />
   <Setter Property="BorderBrush" Value="{DynamicResource Bevel}" />
-  <Setter Property="Padding" Value="12,0" />
+  <Setter Property="Height" Value="30" />
+  <Setter Property="MinWidth" Value="72" />
+  <Setter Property="Padding" Value="14,0" />
   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ButtonBase">
    <Grid Background="Transparent">
     <Border x:Name="Lip" Background="{DynamicResource Shade}" CornerRadius="6" Margin="0,1,0,-1" />
@@ -400,6 +402,208 @@
   </Style.Triggers>
  </Style>
 
+ <!-- 弹窗外壳（提示、确认、链接、设置，见 Dialogs/NoteDialog）：和便签同一套配色与按键。四周 12 的阴影边距，圆角 8；
+      顶栏和便签顶栏一样上浅下深，左边标题，右边键托里放关闭，整条可以拖动。 -->
+ <Style x:Key="DialogWindow" TargetType="Window">
+  <Setter Property="WindowStyle" Value="None" />
+  <Setter Property="AllowsTransparency" Value="True" />
+  <Setter Property="Background" Value="Transparent" />
+  <Setter Property="ResizeMode" Value="NoResize" />
+  <Setter Property="SizeToContent" Value="Height" />
+  <Setter Property="ShowInTaskbar" Value="False" />
+  <Setter Property="UseLayoutRounding" Value="True" />
+  <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
+  <Setter Property="FontSize" Value="13" />
+  <Setter Property="Foreground" Value="{DynamicResource Text}" />
+  <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+  <Setter Property="shell:WindowChrome.WindowChrome">
+   <Setter.Value><shell:WindowChrome CaptionHeight="54" ResizeBorderThickness="0" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" /></Setter.Value>
+  </Setter>
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Window">
+   <Grid x:Name="Card" Margin="12">
+    <Grid CacheMode="BitmapCache" IsHitTestVisible="False">
+     <Border Style="{StaticResource CardShadow}" CornerRadius="8" />
+     <Border Style="{StaticResource CardContact}" CornerRadius="8" />
+    </Grid>
+    <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Edge}" BorderThickness="1" CornerRadius="8" RenderOptions.ClearTypeHint="Enabled">
+     <DockPanel>
+      <Border DockPanel.Dock="Top" Height="42" Background="{DynamicResource HeaderFill}" BorderBrush="{DynamicResource Bevel}" BorderThickness="0,1,0,1" CornerRadius="7,7,0,0">
+       <DockPanel Margin="14,0,6,0">
+        <ContentControl DockPanel.Dock="Right" Style="{StaticResource KeyTray}">
+         <Button Style="{StaticResource DangerIconButton}" Command="{x:Static SystemCommands.CloseWindowCommand}" ToolTip="关闭（Esc）" AutomationProperties.Name="关闭">
+          <ui:SymbolIcon Symbol="Dismiss20" />
+         </Button>
+        </ContentControl>
+        <TextBlock Text="{TemplateBinding Title}" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+       </DockPanel>
+      </Border>
+      <Grid>
+       <Border Height="6" VerticalAlignment="Top" Background="{DynamicResource HeaderShade}" IsHitTestVisible="False" />
+       <AdornerDecorator><ContentPresenter /></AdornerDecorator>
+      </Grid>
+     </DockPanel>
+    </Border>
+   </Grid>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <!-- 弹窗文字：说明和状态 11 号淡色；行尾显示的当前值 12 号淡色。 -->
+ <Style x:Key="DialogHint" TargetType="TextBlock">
+  <Setter Property="FontSize" Value="11" />
+  <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+  <Setter Property="TextWrapping" Value="Wrap" />
+ </Style>
+
+ <Style x:Key="DialogValue" TargetType="TextBlock">
+  <Setter Property="FontSize" Value="12" />
+  <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+  <Setter Property="VerticalAlignment" Value="Center" />
+ </Style>
+
+ <!-- 设置的分页：键托里一排带字的开关，选中的一页凹进去。 -->
+ <Style x:Key="DialogTab" TargetType="RadioButton" BasedOn="{StaticResource LabelToggle}">
+  <Setter Property="Padding" Value="14,0" />
+ </Style>
+
+ <!-- 输入框：凹进去的一道槽（上沿暗、下沿亮），获得焦点时描一圈淡色。Tag 写占位提示，没有文字时显示。 -->
+ <Style x:Key="Field" TargetType="TextBox">
+  <Setter Property="Foreground" Value="{DynamicResource Text}" />
+  <Setter Property="CaretBrush" Value="{DynamicResource Text}" />
+  <Setter Property="SelectionBrush" Value="{DynamicResource Muted}" />
+  <Setter Property="MinHeight" Value="30" />
+  <Setter Property="Padding" Value="8,5" />
+  <Setter Property="VerticalContentAlignment" Value="Center" />
+  <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
+   <Grid>
+    <Border Background="{DynamicResource Inset}" BorderBrush="{DynamicResource Groove}" BorderThickness="1" CornerRadius="6" />
+    <Border x:Name="Ring" BorderBrush="{DynamicResource Muted}" BorderThickness="1.5" CornerRadius="6" Opacity="0" />
+    <TextBlock x:Name="Placeholder" Text="{TemplateBinding Tag}" Foreground="{DynamicResource Muted}" Opacity="0.8" Margin="{TemplateBinding Padding}" Padding="2,0"
+     VerticalAlignment="{TemplateBinding VerticalContentAlignment}" TextTrimming="CharacterEllipsis" IsHitTestVisible="False" Visibility="Collapsed" />
+    <!-- 内边距由 TextBox 自己加在文字外面，这里不再加。 -->
+    <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Focusable="False"
+     HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+   </Grid>
+   <ControlTemplate.Triggers>
+    <Trigger Property="Text" Value=""><Setter TargetName="Placeholder" Property="Visibility" Value="Visible" /></Trigger>
+    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Ring" Property="Opacity" Value="1" /></Trigger>
+    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5" /></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <!-- 开关：凹槽里一颗凸起的钮；开启时槽填成墨色，钮滑到右边。 -->
+ <Style x:Key="Switch" TargetType="ToggleButton">
+  <Setter Property="Width" Value="38" />
+  <Setter Property="Height" Value="22" />
+  <Setter Property="VerticalAlignment" Value="Center" />
+  <Setter Property="Cursor" Value="Hand" />
+  <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
+   <Grid Background="Transparent">
+    <Border Background="{DynamicResource Inset}" BorderBrush="{DynamicResource Groove}" BorderThickness="1" CornerRadius="11" />
+    <Border x:Name="On" Background="{DynamicResource Text}" CornerRadius="11" Opacity="0" />
+    <Grid x:Name="Knob" Width="16" Height="16" Margin="3,0" HorizontalAlignment="Left">
+     <Grid.RenderTransform><TranslateTransform /></Grid.RenderTransform>
+     <Ellipse Fill="{DynamicResource Shade}" Margin="0,1,0,-1" />
+     <Ellipse Fill="{DynamicResource Surface}" Stroke="{DynamicResource Bevel}" StrokeThickness="1" />
+    </Grid>
+   </Grid>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsChecked" Value="True">
+     <Trigger.EnterActions><BeginStoryboard><Storyboard>
+      <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="16" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+      <DoubleAnimation Storyboard.TargetName="On" Storyboard.TargetProperty="Opacity" To="1" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+     </Storyboard></BeginStoryboard></Trigger.EnterActions>
+     <Trigger.ExitActions><BeginStoryboard><Storyboard>
+      <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+      <DoubleAnimation Storyboard.TargetName="On" Storyboard.TargetProperty="Opacity" To="0" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+     </Storyboard></BeginStoryboard></Trigger.ExitActions>
+    </Trigger>
+    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <!-- 滑块：细槽，左边已选的一段填墨色；钮和开关的钮一样。 -->
+ <Style x:Key="SliderFill" TargetType="RepeatButton" BasedOn="{StaticResource ScrollPage}">
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RepeatButton">
+   <Grid Background="Transparent"><Border Height="4" CornerRadius="2" Background="{DynamicResource Text}" Opacity="0.7" VerticalAlignment="Center" /></Grid>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <Style x:Key="SliderKnob" TargetType="Thumb">
+  <Setter Property="Width" Value="16" />
+  <Setter Property="Height" Value="16" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Thumb">
+   <Grid>
+    <Ellipse Fill="{DynamicResource Shade}" Margin="0,1,0,-1" />
+    <Ellipse Fill="{DynamicResource Surface}" Stroke="{DynamicResource Bevel}" StrokeThickness="1" />
+    <Ellipse x:Name="Hover" Fill="{DynamicResource Glow}" Opacity="0" />
+   </Grid>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Hover" Property="Opacity" Value="1" /></Trigger>
+    <Trigger Property="IsDragging" Value="True"><Setter TargetName="Hover" Property="Opacity" Value="1" /></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <Style x:Key="DialogSlider" TargetType="Slider">
+  <Setter Property="Height" Value="22" />
+  <Setter Property="Cursor" Value="Hand" />
+  <Setter Property="IsMoveToPointEnabled" Value="True" />
+  <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
+   <Grid Background="Transparent">
+    <Border Height="6" CornerRadius="3" Margin="1,0" Background="{DynamicResource Inset}" BorderBrush="{DynamicResource Groove}" BorderThickness="1" VerticalAlignment="Center" />
+    <Track x:Name="PART_Track">
+     <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource SliderFill}" Command="Slider.DecreaseLarge" /></Track.DecreaseRepeatButton>
+     <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="Slider.IncreaseLarge" /></Track.IncreaseRepeatButton>
+     <Track.Thumb><Thumb Style="{StaticResource SliderKnob}" /></Track.Thumb>
+    </Track>
+   </Grid>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <!-- 勾选框：小凹槽，勾上时填墨色并显示对勾。 -->
+ <Style x:Key="DialogCheck" TargetType="CheckBox">
+  <Setter Property="Foreground" Value="{DynamicResource Text}" />
+  <Setter Property="Cursor" Value="Hand" />
+  <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+   <StackPanel Orientation="Horizontal" Background="Transparent">
+    <Grid Width="18" Height="18" VerticalAlignment="Center">
+     <Border Background="{DynamicResource Inset}" BorderBrush="{DynamicResource Groove}" BorderThickness="1" CornerRadius="4" />
+     <Border x:Name="On" Background="{DynamicResource Text}" CornerRadius="4" Visibility="Collapsed">
+      <ui:SymbolIcon Symbol="Checkmark20" FontSize="14" Foreground="{DynamicResource Surface}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+     </Border>
+    </Grid>
+    <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
+   </StackPanel>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsChecked" Value="True"><Setter TargetName="On" Property="Visibility" Value="Visible" /></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
+ <!-- 配色色块（设置）：和文字颜色色块同一种做法，色块加一圈淡边，浅色也看得出轮廓。 -->
+ <Style x:Key="PaletteSwatch" TargetType="RadioButton">
+  <Setter Property="Width" Value="32" />
+  <Setter Property="Height" Value="32" />
+  <Setter Property="Cursor" Value="Hand" />
+  <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
+   <Grid Background="Transparent">
+    <Ellipse x:Name="Ring" Margin="1" Stroke="{DynamicResource Text}" StrokeThickness="1.5" Opacity="0" />
+    <Ellipse Margin="5" Fill="{TemplateBinding Background}" Stroke="{DynamicResource Edge}" StrokeThickness="1" />
+   </Grid>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Ring" Property="Opacity" Value="0.35" /></Trigger>
+    <Trigger Property="IsChecked" Value="True"><Setter TargetName="Ring" Property="Opacity" Value="1" /></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+
  <!-- 菜单和提示：底色跟随便签，圆角 8 / 6，阴影单独一层，不让文字走特效渲染。 -->
  <Style TargetType="ContextMenu">
   <Setter Property="Background" Value="{DynamicResource Surface}" />
@@ -420,6 +624,36 @@
    </Grid>
   </ControlTemplate></Setter.Value></Setter>
  </Style>
+
+ <!-- 有下级的菜单项（托盘的「便签（N）」）：右边一个箭头，下级菜单向右展开，样式和菜单相同，太长时滚动。 -->
+ <ControlTemplate x:Key="SubmenuHeader" TargetType="MenuItem">
+  <Grid x:Name="Row" Height="30" Background="Transparent" SnapsToDevicePixels="True">
+   <Border x:Name="Highlight" Background="{DynamicResource Subtle}" CornerRadius="5" Opacity="0" />
+   <Grid Margin="{TemplateBinding Padding}">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="28" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+    <ContentPresenter ContentSource="Icon" HorizontalAlignment="Left" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Muted}" />
+    <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" />
+    <ui:SymbolIcon Grid.Column="2" Style="{StaticResource Icon}" Symbol="ChevronRight20" FontSize="12" Margin="24,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" />
+   </Grid>
+   <Popup IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}" Placement="Right" HorizontalOffset="-2" VerticalOffset="-10"
+    AllowsTransparency="True" Focusable="False" PopupAnimation="{DynamicResource {x:Static SystemParameters.MenuPopupAnimationKey}}">
+    <Grid Margin="6">
+     <Border Background="{DynamicResource Surface}" CornerRadius="8">
+      <Border.Effect><DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Opacity="0.16" /></Border.Effect>
+     </Border>
+     <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Edge}" BorderThickness="1" CornerRadius="8" Padding="4">
+      <ScrollViewer MaxHeight="420" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+       <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+      </ScrollViewer>
+     </Border>
+    </Grid>
+   </Popup>
+  </Grid>
+  <ControlTemplate.Triggers>
+   <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Highlight" Property="Opacity" Value="1" /></Trigger>
+   <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Row" Property="Opacity" Value="0.4" /></Trigger>
+  </ControlTemplate.Triggers>
+ </ControlTemplate>
 
  <!-- 菜单项：左列图标（可勾选的项在这里显示对勾），右侧快捷键。 -->
  <Style TargetType="MenuItem">
@@ -445,6 +679,9 @@
     <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Row" Property="Opacity" Value="0.4" /></Trigger>
    </ControlTemplate.Triggers>
   </ControlTemplate></Setter.Value></Setter>
+  <Style.Triggers>
+   <Trigger Property="Role" Value="SubmenuHeader"><Setter Property="Template" Value="{StaticResource SubmenuHeader}" /></Trigger>
+  </Style.Triggers>
  </Style>
 
  <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator">

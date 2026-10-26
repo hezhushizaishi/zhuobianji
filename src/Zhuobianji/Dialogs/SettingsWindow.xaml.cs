@@ -1,21 +1,26 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using Wpf.Ui.Controls;
+using System.Windows.Media;
 using Zhuobianji.Core;
 
 namespace Zhuobianji;
 
-internal partial class SettingsWindow : FluentWindow
+internal partial class SettingsWindow : NoteDialog
 {
+    private static readonly string[] Fonts = ["Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", "SimSun", "Consolas"];
     private readonly NoteController controller;
     private bool initializing = true;
-    private bool? darkTheme;
     private bool hotkeysDirty;
+    private string font;
+    private readonly Dictionary<TextBox, HotkeyBinding> hotkeys = [];
     internal NoteWindow? TargetNote { get; }
 
-    internal SettingsWindow(NoteController controller, NoteWindow? note)
+    internal SettingsWindow(NoteController controller, NoteWindow? note) : base(note?.Data.Appearance ?? controller.Preferences.Appearance)
     {
         InitializeComponent();
         this.controller = controller;
@@ -25,48 +30,77 @@ internal partial class SettingsWindow : FluentWindow
         SetHotkey(NewNoteHotkey, controller.Preferences.Hotkeys.NewNote);
         SetHotkey(ToggleNotesHotkey, controller.Preferences.Hotkeys.ToggleNotes);
         var appearance = note?.Data.Appearance ?? controller.Preferences.Appearance;
-        NoteLabel.Text = note?.Data.Preview ?? "没有便签";
-        AppearancePanel.IsEnabled = note is not null;
-        foreach (var (key, name) in NoteTheme.Palettes)
-            PaletteBox.Items.Add(new ComboBoxItem { Content = name, Tag = key });
-        foreach (ComboBoxItem item in PaletteBox.Items)
-            if ((string)item.Tag == appearance.Palette) PaletteBox.SelectedItem = item;
-        if (PaletteBox.SelectedIndex < 0) PaletteBox.SelectedIndex = 0;
-        foreach (var font in new[] { "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", "SimSun", "Consolas" }) FontBox.Items.Add(font);
-        if (!FontBox.Items.Contains(appearance.FontFamily)) FontBox.Items.Add(appearance.FontFamily);
-        FontBox.SelectedItem = appearance.FontFamily;
+        NoteLabel.Text = note is null ? "没有便签" : "这张便签：" + note.Data.Preview;
+        AppearancePage.IsEnabled = note is not null;
+        foreach (var (key, name, swatch) in NoteTheme.Palettes)
+        {
+            var item = new RadioButton { Style = (Style)FindResource("PaletteSwatch"), Background = swatch, Tag = key, ToolTip = name,
+                IsChecked = key == appearance.Palette };
+            System.Windows.Automation.AutomationProperties.SetName(item, name);
+            item.Checked += OnAppearanceChanged;
+            PalettePanel.Children.Add(item);
+        }
+        if (PaletteItems.All(item => item.IsChecked != true)) PaletteItems.First().IsChecked = true;
+        font = appearance.FontFamily;
+        foreach (var family in Fonts.Contains(font) ? Fonts : Fonts.Append(font))
+        {
+            var item = new MenuItem { Header = new TextBlock { Text = family, FontFamily = new FontFamily(family) }, Tag = family };
+            item.Click += OnFontChosen;
+            FontMenu.Items.Add(item);
+        }
         DarkSwitch.IsChecked = appearance.Dark;
         SizeSlider.Value = appearance.FontSize;
         OpacitySlider.Value = appearance.Opacity * 100;
         if (controller.TryReadStartup(out var enabled, out var error)) StartupSwitch.IsChecked = enabled;
         else { StartupSwitch.IsEnabled = false; Status.Text = error; }
-        SetTheme(appearance.Dark);
+        AppearanceTab.IsChecked = true;
         UpdateLabels();
         initializing = false;
         Closed += (_, _) => controller.ResumeHotkeys(out _);
     }
 
-    private void SetTheme(bool dark)
+    internal RadioButton[] PaletteItems => PalettePanel.Children.OfType<RadioButton>().ToArray();
+
+    private void OnPage(object sender, RoutedEventArgs e)
     {
-        if (darkTheme == dark) return;
-        darkTheme = dark;
-        NoteTheme.ApplyFluent(Resources, dark);
+        if (AppearancePage is null) return;
+        AppearancePage.Visibility = AppearanceTab.IsChecked == true ? Visibility.Visible : Visibility.Hidden;
+        ProgramPage.Visibility = ProgramTab.IsChecked == true ? Visibility.Visible : Visibility.Hidden;
+        HotkeyPage.Visibility = HotkeyTab.IsChecked == true ? Visibility.Visible : Visibility.Hidden;
     }
 
     private void UpdateLabels()
     {
+        var palette = PaletteItems.FirstOrDefault(item => item.IsChecked == true);
+        PaletteLabel.Text = palette?.ToolTip as string ?? "";
+        FontLabel.Text = font;
+        FontLabel.FontFamily = new FontFamily(font);
+        foreach (MenuItem item in FontMenu.Items) item.IsChecked = (string)item.Tag == font;
         FontSizeLabel.Text = $"{SizeSlider.Value:0}";
         OpacityLabel.Text = $"{OpacitySlider.Value:0}%";
     }
 
+    private void OnFontMenu(object sender, RoutedEventArgs e)
+    {
+        FontMenu.PlacementTarget = FontButton;
+        FontMenu.Placement = PlacementMode.Bottom;
+        FontMenu.IsOpen = true;
+    }
+
+    private void OnFontChosen(object sender, RoutedEventArgs e)
+    {
+        font = (string)((MenuItem)sender).Tag;
+        OnAppearanceChanged(sender, e);
+    }
+
     private void OnAppearanceChanged(object sender, RoutedEventArgs e)
     {
-        if (initializing || TargetNote is null || PaletteBox.SelectedItem is not ComboBoxItem palette || FontBox.SelectedItem is not string font) return;
+        if (initializing || TargetNote is null || PaletteItems.FirstOrDefault(item => item.IsChecked == true) is not { } palette) return;
         var appearance = new NoteAppearance { Palette = (string)palette.Tag, Dark = DarkSwitch.IsChecked == true,
             FontFamily = font, FontSize = SizeSlider.Value, Opacity = OpacitySlider.Value / 100 };
         TargetNote.ApplyAppearance(appearance);
         TargetNote.MarkDirty();
-        SetTheme(appearance.Dark);
+        SetAppearance(appearance);
         UpdateLabels();
         Status.Text = "";
     }
@@ -111,9 +145,10 @@ internal partial class SettingsWindow : FluentWindow
         initializing = wasInitializing;
     }
 
-    private static void SetHotkey(System.Windows.Controls.TextBox box, HotkeyBinding binding)
+    // 输入框的 Tag 是占位提示，组合键另外记着。
+    private void SetHotkey(TextBox box, HotkeyBinding binding)
     {
-        box.Tag = binding;
+        hotkeys[box] = binding;
         box.Text = GlobalHotkeys.Display(binding);
     }
 
@@ -129,10 +164,10 @@ internal partial class SettingsWindow : FluentWindow
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key is Key.Tab or Key.Escape) return;
         e.Handled = true;
-        CaptureHotkey((System.Windows.Controls.TextBox)sender, key, Keyboard.Modifiers);
+        CaptureHotkey((TextBox)sender, key, Keyboard.Modifiers);
     }
 
-    internal void CaptureHotkey(System.Windows.Controls.TextBox box, Key key, ModifierKeys modifiers)
+    internal void CaptureHotkey(TextBox box, Key key, ModifierKeys modifiers)
     {
         if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin) return;
         var binding = modifiers == ModifierKeys.None && key is Key.Back or Key.Delete
@@ -146,7 +181,7 @@ internal partial class SettingsWindow : FluentWindow
 
     private void OnClearHotkey(object sender, RoutedEventArgs e)
     {
-        var box = (System.Windows.Controls.TextBox)FindName((string)((FrameworkElement)sender).Tag);
+        var box = (TextBox)FindName((string)((FrameworkElement)sender).Tag);
         SetHotkey(box, new());
         hotkeysDirty = true;
         Status.Text = "";
@@ -154,7 +189,7 @@ internal partial class SettingsWindow : FluentWindow
 
     private bool SaveHotkeys()
     {
-        var bindings = new NoteHotkeys { NewNote = (HotkeyBinding)NewNoteHotkey.Tag, ToggleNotes = (HotkeyBinding)ToggleNotesHotkey.Tag };
+        var bindings = new NoteHotkeys { NewNote = hotkeys[NewNoteHotkey], ToggleNotes = hotkeys[ToggleNotesHotkey] };
         if (!controller.TrySaveHotkeys(bindings, out var error)) { Status.Text = error; return false; }
         hotkeysDirty = false;
         Status.Text = "快捷键已保存";

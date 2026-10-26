@@ -90,8 +90,7 @@ internal static partial class Program
         var dialog = new LinkWindow(rich.Data.Appearance, folder, "项目资料") { Owner = rich };
         _ = rich.Dispatcher.BeginInvoke(() =>
         {
-            dialog.UpdateLayout();
-            Capture(dialog, Path.Combine(root, "link-dialog.png"));
+            CaptureDialog(dialog, Path.Combine(root, "link-dialog.png"));
             dialog.SaveButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         });
         Check(dialog.ShowDialog() == true && dialog.TargetUri == folderUri && dialog.LinkName == "项目资料",
@@ -118,10 +117,9 @@ internal static partial class Program
 
         _ = rich.Dispatcher.BeginInvoke(() =>
         {
-            var warning = Application.Current.Windows.OfType<Wpf.Ui.Controls.MessageBox>().Single();
-            warning.UpdateLayout();
-            Capture(warning, Path.Combine(root, "format-warning.png"));
-            ((Window)warning).Close();
+            var warning = Application.Current.Windows.OfType<MessageDialog>().Single();
+            CaptureDialog(warning, Path.Combine(root, "format-warning.png"));
+            warning.Close();
         });
         rich.MarkdownFormatItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
         await Task.Delay(100);

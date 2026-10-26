@@ -13,17 +13,16 @@ namespace Zhuobianji.Checks;
 internal static partial class Program
 {
     private static async Task ReplyToDeletion(Action request, string response,
-        Action<Wpf.Ui.Controls.MessageBox>? inspect = null)
+        Action<MessageDialog>? inspect = null)
     {
         var reached = false;
         _ = Application.Current.Dispatcher.BeginInvoke(() =>
         {
-            var dialog = Application.Current.Windows.OfType<Wpf.Ui.Controls.MessageBox>().Single();
+            var dialog = Application.Current.Windows.OfType<MessageDialog>().Single();
             reached = true;
             inspect?.Invoke(dialog);
-            if (response == "close") ((Window)dialog).Close();
-            else dialog.TemplateButtonCommand.Execute(response == "delete"
-                ? Wpf.Ui.Controls.MessageBoxButton.Primary : Wpf.Ui.Controls.MessageBoxButton.Close);
+            if (response == "close") dialog.Close();
+            else (response == "delete" ? dialog.PrimaryButton : dialog.CancelButton!).RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         });
         request();
         await Task.Delay(80);
@@ -46,10 +45,13 @@ internal static partial class Program
         await ReplyToDeletion(clickDelete, "cancel", dialog =>
         {
             Check(controller.Notes.ContainsKey(note.Data.Id) && File.Exists(store.GetPath(note.Data.Id)) &&
-                dialog.CloseButtonText == "取消" && dialog.PrimaryButtonText == "删除",
+                Equals(dialog.CancelButton?.Content, "取消") && Equals(dialog.PrimaryButton.Content, "删除"),
                 "点击垃圾桶先显示取消／删除确认，确认前窗口和数据仍在");
             clickDelete();
-            Check(Application.Current.Windows.OfType<Wpf.Ui.Controls.MessageBox>().Count() == 1,
+            Check(dialog.Owner == note && dialog.PrimaryButton.Style == dialog.FindResource("DangerButton") && !dialog.PrimaryButton.IsDefault &&
+                dialog.Resources["Surface"] == NoteTheme.For(note.Data.Appearance).Surface,
+                "确认框跟随便签配色，删除键标红，回车不会直接删除");
+            Check(Application.Current.Windows.OfType<MessageDialog>().Count() == 1,
                 "同一张便签连续点删除只显示一个确认框");
             CaptureDialog(dialog, Path.Combine(root, "delete-confirmation.png"));
         });
@@ -93,7 +95,7 @@ internal static partial class Program
         Action deleteMain = () => other.DeleteButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         await ReplyToDeletion(deleteMain, "cancel", dialog =>
         {
-            Check(((string)dialog.Content).Contains("收纳的便签会释放") &&
+            Check(((TextBlock)dialog.Body).Text.Contains("收纳的便签会释放") &&
                 retained.Data.CollectedBy == other.Data.Id && !retained.IsVisible,
                 "主便签确认说明释放收纳项，确认前不提前释放");
             CaptureDialog(dialog, Path.Combine(root, "delete-main-confirmation.png"));

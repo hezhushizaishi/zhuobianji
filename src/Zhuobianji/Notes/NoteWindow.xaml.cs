@@ -194,9 +194,9 @@ internal partial class NoteWindow : Window
         deleteConfirmationOpen = true;
         try
         {
-            if (await Dialogs.Confirm(owner ?? this, Data.Appearance.Dark, Data.IsCollectionMain ? "删除主便签" : "删除便签",
+            if (await Dialogs.Confirm(owner ?? this, Data.Appearance, Data.IsCollectionMain ? "删除主便签" : "删除便签",
                 Data.IsCollectionMain ? "主便签会永久删除，无法撤销。\n收纳的便签会释放到桌面。" : "这张便签会永久删除，无法撤销。",
-                "删除", danger: true, width: 400))
+                "删除", danger: true))
                 controller.DeleteNote(this);
         }
         finally { deleteConfirmationOpen = false; }
@@ -306,12 +306,11 @@ internal partial class NoteWindow : Window
         var notice = FormatConversionNotice(target);
         if (notice is not null && controller.Preferences.ShowFormatWarnings)
         {
-            var acknowledge = new CheckBox { Content = "已知晓，不再提示", Margin = new Thickness(0, 16, 0, 0),
-                Foreground = NoteTheme.For(Data.Appearance).Text };
+            var acknowledge = new CheckBox { Content = "已知晓，不再提示", Margin = new Thickness(0, 16, 0, 0) };
             var content = new StackPanel();
-            content.Children.Add(new TextBlock { Text = notice, TextWrapping = TextWrapping.Wrap, Foreground = NoteTheme.For(Data.Appearance).Text });
+            content.Children.Add(new TextBlock { Text = notice, TextWrapping = TextWrapping.Wrap, LineHeight = 20 });
             content.Children.Add(acknowledge);
-            if (!await Dialogs.Confirm(this, Data.Appearance.Dark, "切换格式", content, "转换"))
+            if (!await Dialogs.Confirm(this, Data.Appearance, "切换格式", content, "转换"))
             { UpdateEditorButtons(); return; }
             if (acknowledge.IsChecked == true && !controller.TrySetFormatWarnings(false, out var error))
                 Dialogs.Show(error, "设置");

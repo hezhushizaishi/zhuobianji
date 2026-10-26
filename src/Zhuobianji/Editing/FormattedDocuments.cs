@@ -63,6 +63,7 @@ internal static class FormattedDocuments
         document.FontFamily = new FontFamily(appearance.FontFamily);
         document.FontSize = appearance.FontSize;
         document.LineHeight = appearance.FontSize * NoteTheme.LineHeightFactor;
+        var theme = NoteTheme.For(appearance);
         foreach (var element in DocumentText.Elements(document).ToArray())
         {
             var code = DocumentText.IsCode(element);
@@ -74,18 +75,38 @@ internal static class FormattedDocuments
                 element.ClearValue(TextElement.FontFamilyProperty);
                 if (!heading) element.ClearValue(TextElement.FontSizeProperty);
             }
-            // 从深色便签复制到浅色便签（或反过来）时，原主题的文字色和链接色换成本便签的。
+            // 从深色便签复制到浅色便签（或反过来）时，原主题的文字色和链接色换成本便签的；
+            // 网页和其他程序带来的近黑、近白文字色也去掉，跟随主题（NoteTheme.IsPageNeutral）。
             if (pasted && element.ReadLocalValue(TextElement.ForegroundProperty) is SolidColorBrush brush)
             {
-                if (element is Hyperlink) { if (NoteTheme.IsThemeLink(brush.Color)) element.Foreground = NoteTheme.For(appearance).Link; }
-                else if (NoteTheme.IsThemeText(brush.Color)) element.ClearValue(TextElement.ForegroundProperty);
+                if (element is Hyperlink) { if (NoteTheme.IsThemeLink(brush.Color)) element.Foreground = theme.Link; }
+                else if (NoteTheme.IsThemeText(brush.Color) || NoteTheme.IsPageNeutral(brush.Color)) element.ClearValue(TextElement.ForegroundProperty);
             }
+            FollowTheme(element, theme, pasted);
             if (element is System.Windows.Documents.Block block) block.ClearValue(System.Windows.Documents.Block.LineHeightProperty);
             if (element is Paragraph paragraph && !code) paragraph.Margin = Below(NoteTheme.ParagraphSpacing);
             if (element is System.Windows.Documents.List list)
             { list.Margin = Below(NoteTheme.ListSpacing); list.Padding = new Thickness(NoteTheme.ListIndent, 0, 0, 0); }
         }
     }
+    // 代码底色、引用文字色、表格和分隔线边框换成当前主题的（见 NoteTheme.IsThemeCode）；粘贴时别处带来的近白、近黑底色去掉。
+    private static void FollowTheme(TextElement element, NoteTheme theme, bool pasted)
+    {
+        if (element.ReadLocalValue(TextElement.BackgroundProperty) is SolidColorBrush back)
+        {
+            if (NoteTheme.IsThemeCode(back.Color)) element.Background = theme.Code;
+            else if (pasted && NoteTheme.IsPageNeutral(back.Color)) element.ClearValue(TextElement.BackgroundProperty);
+        }
+        if (element.ReadLocalValue(TextElement.ForegroundProperty) is SolidColorBrush fore && NoteTheme.IsThemeMuted(fore.Color))
+            element.Foreground = theme.Muted;
+        DependencyProperty? border = element switch
+        {
+            System.Windows.Documents.Block => System.Windows.Documents.Block.BorderBrushProperty, TableCell => TableCell.BorderBrushProperty, _ => null
+        };
+        if (border is not null && element.ReadLocalValue(border) is SolidColorBrush edge && NoteTheme.IsThemeBorder(edge.Color))
+            element.SetValue(border, theme.Border);
+    }
+
     internal static bool LooksLikeMarkdown(string text) => Regex.IsMatch(PastedLinks.NormalizeCopiedSyntax(text),
         @"(?m)^\s{0,3}(#{1,6}\s+\S|```|~~~|>\s+\S|[-*+]\s+\S|\d+\.\s+\S)|\*\*[^*\r\n]+\*\*|\[[^\]\r\n]*\]\(\s*<?(?:https?://|file:|[A-Za-z]:[\\/]|\\\\)|\|[ \t]*:?-{3,}:?[ \t]*\|");
 
@@ -295,6 +316,8 @@ internal static class FormattedDocuments
                     var brush = rgb.Success
                         ? new SolidColorBrush(Color.FromRgb(byte.Parse(rgb.Groups[1].Value), byte.Parse(rgb.Groups[2].Value), byte.Parse(rgb.Groups[3].Value)))
                         : NoteTheme.B(value);
+                    // 原页面的黑字白底不带进便签（NoteTheme.IsPageNeutral），有颜色的保留。
+                    if (NoteTheme.IsPageNeutral(brush.Color)) continue;
                     if (key == "color") target.Foreground = brush; else target.Background = brush;
                 }
                 catch (Exception ex) when (ex is FormatException or OverflowException or NotSupportedException) { }
