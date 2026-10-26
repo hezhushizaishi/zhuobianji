@@ -22,7 +22,7 @@ internal static partial class Program
         {
             controller.Start();
             var main = controller.Notes.Values.Single();
-            // 主便签用常见尺寸 460×457：标签区是基准的 1.5 倍（宽 138）。
+            // 主便签用常见尺寸 460×457：标签是基准的 1.5 倍，标签区宽 115。
             PreviewSize(main, 460, 457, "mist");
             main.Editor.Rich.Document = FormattedDocuments.FromHtml(
                 "<h2>今天先做这些</h2><p>慢慢来，一件一件完成。</p><ul><li>回一封邮件</li><li>整理桌面文件</li><li>给周末留点空闲</li></ul><p><b>下午三点</b>，出门走一走。</p>", main.Data.Appearance);
@@ -38,12 +38,15 @@ internal static partial class Program
             }).ToArray();
             controller.ExpandCollectedNote(children[0]);
             await PreviewReady(controller);
+            var lastTab = (FrameworkElement)main.CollectionTabs.Children[main.CollectionTabs.Children.Count - 1];
+            var afterLast = RailTop(main, main.CollectionNewButton) - RailTop(main, lastTab) - lastTab.ActualHeight;
+            Check(main.CollectionScroll.ScrollableHeight == 0 && afterLast >= 0 && afterLast < 12, "标签放得下时「新建」紧跟最后一张");
             // 子便签从标签一侧抽出：卡片在主便签标签区左边 8，顶部对齐第一个标签（卡片顶 + 48）。主便签的坐标是标签区左边。
-            PreviewScene("collection.png", 1004, 537, (children[0], 24, 88), (main, 382, 40));
+            PreviewScene("collection.png", 981, 537, (children[0], 24, 88), (main, 382, 40));
             controller.RequestExit();
         }
 
-        // 标签很多时：尺寸不变，放不下的滚着看，不出滚动条，底部渐隐；标签颜色取自各自的便签。
+        // 标签很多时：尺寸不变，放不下的滚着看，不出滚动条，底部渐隐；「新建」钉在最下面。标签颜色取自各自的便签。
         using (var store = new NoteStore(Path.Combine(root, "rail", "Data")))
         using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
         {
@@ -63,7 +66,11 @@ internal static partial class Program
             }
             controller.ExpandCollectedNote(controller.CollectedNotes(main).ElementAt(2));
             await PreviewReady(controller);
-            PreviewScene("rail.png", 646, 521, (main, 24, 32));
+            var newBottom = RailTop(main, main.CollectionNewButton) + main.CollectionNewButton.ActualHeight;
+            Check(main.CollectionScroll.ScrollableHeight > 0 && main.CollectionNewButton.IsVisible &&
+                newBottom <= main.RailViewport.ActualHeight + 0.5 && newBottom > main.RailViewport.ActualHeight - 12,
+                "标签放不下时滚动，「新建」钉在标签区最下面，不用滚动就能看到");
+            PreviewScene("rail.png", 623, 521, (main, 24, 32));
             controller.RequestExit();
         }
 
@@ -151,6 +158,9 @@ internal static partial class Program
         }
         Console.WriteLine("已生成 collection.png、formats.png、links.png、rail.png 和细节图；未使用正式 Data。");
     }
+
+    private static double RailTop(NoteWindow main, FrameworkElement element) =>
+        element.TransformToAncestor(main.RailViewport).Transform(new Point()).Y;
 
     // 便签窗口四周有阴影边距：这里的宽高和场景坐标都按正文卡片算。
     private static void PreviewSize(NoteWindow window, double width, double height, string palette)

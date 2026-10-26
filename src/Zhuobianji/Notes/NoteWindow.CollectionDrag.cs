@@ -92,10 +92,10 @@ internal partial class NoteWindow
         }
     }
 
-    // 指针离开整个标签区才收回让位；在标签之间移动也会触发 DragLeave，不处理。
+    // 指针离开整列标签（含底下的「新建」）才收回让位；在标签之间移动也会触发 DragLeave，不处理。
     private void OnCollectionDragLeave(object sender, DragEventArgs e)
     {
-        if (new Rect(CollectionScroll.RenderSize).Contains(e.GetPosition(CollectionScroll))) return;
+        if (new Rect(CollectionColumn.RenderSize).Contains(e.GetPosition(CollectionColumn))) return;
         foreach (UIElement tab in CollectionTabs.Children) SlideTab(tab, TranslateTransform.YProperty, 0, NoteTheme.Fast);
     }
 

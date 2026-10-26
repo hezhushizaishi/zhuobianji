@@ -14,8 +14,8 @@ internal partial class NoteWindow
 {
     internal NoteEditor Editor => OwnEditor;
     // 主便签左侧留给标签的透明区域；Snapshot 保存的位置宽度不含这一块。
-    // 标签区跟主便签卡片等比缩放：卡片短边约 305 时是基准尺寸（区宽 92、标签高 30），457 时 1.5 倍；按 0.1 一档，最多 1.6 倍。
-    // 标签不压矮，放不下就用滚轮滚动（滚动条隐藏，上下边缘渐隐）。
+    // 标签跟主便签卡片等比缩放：卡片短边约 305 时是基准尺寸（区宽 92、标签高 30），457 时 1.5 倍；按 0.1 一档，最多 1.6 倍。
+    // 标签区宽度只放大一半（1.5 倍时 115），标签不至于伸得太长。标签不压矮，放不下就用滚轮滚动（滚动条隐藏，上下边缘渐隐）。
     internal const double RailWidth = 92;
     private double railScale;
     private double collectionRailWidth;
@@ -31,7 +31,9 @@ internal partial class NoteWindow
     internal static double RailScale(double cardWidth, double cardHeight) =>
         Math.Clamp(Math.Round(Math.Min(cardWidth, cardHeight) / 305, 1), 1, 1.6);
 
-    internal static double RailWidthFor(double cardWidth, double cardHeight) => Math.Round(RailWidth * RailScale(cardWidth, cardHeight));
+    private static double RailWidthAt(double scale) => Math.Round(RailWidth * (1 + scale) / 2);
+
+    internal static double RailWidthFor(double cardWidth, double cardHeight) => RailWidthAt(RailScale(cardWidth, cardHeight));
 
     // 卡片跨过一档时换算标签尺寸：高、间距、缩进、压在卡片下的一截和抽出距离一起放大，字号最大 16（和正文一样）。
     // 样式里的尺寸引用标签区上的资源，之后新建的标签自动用当前档位。
@@ -58,7 +60,7 @@ internal partial class NoteWindow
     }
 
     // 标签区宽度跟着档位走。改宽度要同时移动窗口左边，所以拖动缩放时等松手再改（NoteWindow.Saving 的 WM_EXITSIZEMOVE）。
-    private void FitRailWidth() => SetRailWidth(Data.IsCollectionMain ? Math.Round(RailWidth * railScale) : 0);
+    private void FitRailWidth() => SetRailWidth(Data.IsCollectionMain ? RailWidthAt(railScale) : 0);
 
     private void OnCardResized(object sender, SizeChangedEventArgs e)
     {
@@ -227,8 +229,8 @@ internal partial class NoteWindow
         UpdateLayout();
         if (tab.ActualHeight == 0) return cardTop;
         var y = tab.TransformToAncestor(this).Transform(new Point()).Y - ((TranslateTransform)tab.RenderTransform).Y;
-        var viewport = RailViewport.TransformToAncestor(this).Transform(new Point()).Y;
-        return Top + Math.Clamp(y, viewport, Math.Max(viewport, viewport + RailViewport.ActualHeight - tab.ActualHeight));
+        var viewport = CollectionScroll.TransformToAncestor(this).Transform(new Point()).Y;
+        return Top + Math.Clamp(y, viewport, Math.Max(viewport, viewport + CollectionScroll.ActualHeight - tab.ActualHeight));
     }
 
     // 标签悬停预览：标题、正文开头三行、修改时间。

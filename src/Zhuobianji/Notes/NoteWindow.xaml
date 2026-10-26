@@ -30,22 +30,25 @@
   <Grid x:Name="Frame" Margin="12">
    <Grid.ColumnDefinitions><ColumnDefinition x:Name="RailColumn" Width="0" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
    <!-- 左侧标签区：只有主便签有宽度；关闭标签时保留透明区域，窗口边界不变。
-        标签像活页本的索引贴，右端伸到卡片下面一截（右边距由代码按档位设置）；放不下时用滚轮滚动，不显示滚动条。 -->
+        标签像活页本的索引贴，右端伸到卡片下面一截（右边距由代码按档位设置）；放不下时用滚轮滚动，不显示滚动条。
+        「新建」不跟着滚：标签放得下时紧跟最后一张，放不下时钉在最下面（顶对齐的 Grid，星号行最多占到剩下的高度）。 -->
    <Grid x:Name="RailViewport" Grid.Column="0" Margin="0,48,-10,6" ClipToBounds="True">
     <Grid x:Name="CollectionRail" Visibility="Collapsed">
      <Grid.RenderTransform><TranslateTransform x:Name="RailTranslation" /></Grid.RenderTransform>
-     <ScrollViewer x:Name="CollectionScroll" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False" AllowDrop="True"
-      DragOver="OnCollectionDragOver" DragLeave="OnCollectionDragLeave" Drop="OnCollectionDrop" ScrollChanged="OnCollectionScrolled">
-      <StackPanel>
+     <Grid x:Name="CollectionColumn" VerticalAlignment="Top" Background="Transparent" AllowDrop="True"
+      DragOver="OnCollectionDragOver" DragLeave="OnCollectionDragLeave" Drop="OnCollectionDrop">
+      <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+      <ScrollViewer x:Name="CollectionScroll" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False"
+       ScrollChanged="OnCollectionScrolled">
        <StackPanel x:Name="CollectionTabs" Background="Transparent" />
-       <Button x:Name="CollectionNewButton" Style="{StaticResource NewTab}" ToolTip="新建收纳便签" AutomationProperties.Name="新建收纳便签" Click="OnNewCollected">
-        <StackPanel Orientation="Horizontal">
-         <ui:SymbolIcon Symbol="Add20" FontSize="{DynamicResource TabFontSize}" />
-         <TextBlock Text="新建" Margin="4,0,0,0" VerticalAlignment="Center" />
-        </StackPanel>
-       </Button>
-      </StackPanel>
-     </ScrollViewer>
+      </ScrollViewer>
+      <Button x:Name="CollectionNewButton" Grid.Row="1" Style="{StaticResource NewTab}" ToolTip="新建收纳便签" AutomationProperties.Name="新建收纳便签" Click="OnNewCollected">
+       <StackPanel Orientation="Horizontal">
+        <ui:SymbolIcon Symbol="Add20" FontSize="{DynamicResource TabFontSize}" />
+        <TextBlock Text="新建" Margin="4,0,0,0" VerticalAlignment="Center" />
+       </StackPanel>
+      </Button>
+     </Grid>
     </Grid>
    </Grid>
    <!-- 卡片阴影：贴边的短阴影加外圈的柔和阴影，外层缓存成位图，正文变化时不重画阴影。 -->

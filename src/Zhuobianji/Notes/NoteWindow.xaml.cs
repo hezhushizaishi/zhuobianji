@@ -38,7 +38,7 @@ internal partial class NoteWindow : Window
         desktop = new DesktopHost(this);
         Data = data;
         ScaleTabs(RailScale(data.Width, data.Height));
-        collectionRailWidth = data.IsCollectionMain ? Math.Round(RailWidth * railScale) : 0;
+        collectionRailWidth = data.IsCollectionMain ? RailWidthAt(railScale) : 0;
         MinWidth = MinCardWidth + CollectionRailWidth + 2 * ShadowMargin;
         MinHeight = MinCardHeight + 2 * ShadowMargin;
         Width = Math.Max(MinWidth, data.Width + CollectionRailWidth + 2 * ShadowMargin);
