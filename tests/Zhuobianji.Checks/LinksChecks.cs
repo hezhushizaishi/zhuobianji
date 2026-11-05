@@ -75,7 +75,7 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var rich = controller.Notes.Values.Single();
+        var rich = controller.Windows.Values.Single();
         rich.Left = 140; rich.Top = 120;
         var pasted = LoadPaste(rich.Editor.PreparePaste(new DataObject(DataFormats.UnicodeText, emptyMd)));
         Check(Label(Link(pasted)) == NoteLinks.ShortName(web), "富文本粘贴空名称 Markdown 链接能识别并显示");

@@ -38,7 +38,7 @@ internal static partial class Program
         store.Save(original);
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var note = controller.Notes.Values.Single();
+        var note = controller.Windows.Values.Single();
         note.Left = 140; note.Top = 120;
         var document = note.Editor.Rich.Document;
         Check(note.Editor.TextContent == original.Text && note.Editor.Format == original.Format,

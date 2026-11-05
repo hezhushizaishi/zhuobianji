@@ -43,12 +43,12 @@ internal static partial class Program
 
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var main = controller.MainNote!;
-        var child = controller.Notes[childData.Id];
+        var main = controller.WindowOf(controller.Book.Main)!;
+        var child = controller.Windows[childData.Id];
         main.UpdateLayout();
         Check(main.Data.ShowCollectionRail && main.CollectionRail.IsVisible && main.CollectionRailToggle.IsVisible,
             "旧记录默认显示标签，主便签顶部有开关");
-        controller.ShowNote(child);
+        controller.ShowNote(child.Entry);
         await Task.Delay(80);
         main.Activate();
         Keyboard.Focus(main.CollectionRailToggle);
@@ -147,14 +147,14 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var main = controller.MainNote!;
+        var main = controller.WindowOf(controller.Book.Main)!;
         main.UpdateLayout();
         Check(!main.Data.ShowCollectionRail && main.CollectionRail.Visibility == Visibility.Collapsed &&
             main.CollectionRailToggle.IsVisible && SameCard(main.Snapshot(), expected) &&
             main.Editor.TextContent == expected.Text, "独立进程恢复关闭状态，正文位置宽度和文字不变");
         main.CollectionRailToggle.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         await Task.Delay(240);
-        var child = controller.CollectedNotes(main).Single();
+        var child = controller.WindowOf(controller.Book.Collected(main.Entry).Single())!;
         main.CollectionTabButtons[child.Data.Id].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         Check(main.CollectionRail.IsVisible && child.IsVisible && child.Data.CollectedBy == main.Data.Id,
             "重开后可以开启标签并展开原有收纳项");

@@ -21,7 +21,7 @@ internal static partial class Program
         using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
         {
             controller.Start();
-            var main = controller.Notes.Values.Single();
+            var main = controller.Windows.Values.Single();
             // 主便签用常见尺寸 460×457：标签是基准的 1.5 倍，标签区宽 115。
             PreviewSize(main, 460, 457, "mist");
             main.Editor.Rich.Document = FormattedDocuments.FromHtml(
@@ -36,7 +36,7 @@ internal static partial class Program
                 controller.CollectNote(child);
                 return child;
             }).ToArray();
-            controller.ExpandCollectedNote(children[0]);
+            controller.ExpandCollectedNote(children[0].Entry);
             await PreviewReady(controller);
             var lastTab = (FrameworkElement)main.CollectionTabs.Children[main.CollectionTabs.Children.Count - 1];
             var afterLast = RailTop(main, main.CollectionNewButton) - RailTop(main, lastTab) - lastTab.ActualHeight;
@@ -51,7 +51,7 @@ internal static partial class Program
         using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
         {
             controller.Start();
-            var main = controller.Notes.Values.Single();
+            var main = controller.Windows.Values.Single();
             PreviewSize(main, 460, 457, "green");
             main.Editor.TextContent = "主便签\n左边是收起来的便签。";
             controller.SetMainNote(main);
@@ -64,7 +64,7 @@ internal static partial class Program
                 child.Editor.TextContent = titles[index];
                 controller.CollectNote(child);
             }
-            controller.ExpandCollectedNote(controller.CollectedNotes(main).ElementAt(2));
+            controller.ExpandCollectedNote(controller.Book.Collected(main.Entry).ElementAt(2));
             await PreviewReady(controller);
             var newBottom = RailTop(main, main.CollectionNewButton) + main.CollectionNewButton.ActualHeight;
             Check(main.CollectionScroll.ScrollableHeight > 0 && main.CollectionNewButton.IsVisible &&
@@ -87,7 +87,7 @@ internal static partial class Program
         using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
         {
             controller.Start();
-            var rich = controller.Notes.Values.Single();
+            var rich = controller.Windows.Values.Single();
             PreviewSize(rich, 340, 400, "mist");
             rich.Editor.Rich.Document = FormattedDocuments.FromHtml(
                 "<h2>随手写，也能排整齐</h2><p>一句想法，一份清单。</p><p><b>重要的事</b>加粗，<span style='color:#C65E59'>喜欢的句子</span>换个颜色。</p><ul><li>带上相机</li><li>去公园看落叶</li></ul>", rich.Data.Appearance);
@@ -112,7 +112,7 @@ internal static partial class Program
             File.WriteAllText(document, "桌边记截图使用的演示文件。");
             var source = "# 常用入口\n\n资料和链接，放在手边。\n\n- [项目说明](" + new Uri(document).AbsoluteUri + ")\n- [资料文件夹](" + new Uri(material).AbsoluteUri + ")\n- [GitHub](https://github.com/)\n\n下次要用，点文字就能打开。";
             controller.Start();
-            var rich = controller.Notes.Values.Single();
+            var rich = controller.Windows.Values.Single();
             PreviewSize(rich, 420, 380, "mist");
             rich.Editor.Rich.Document = FormattedDocuments.FromMarkdown(source, rich.Data.Appearance);
             var markdown = controller.CreateNote(format: NoteFormat.Markdown);
@@ -128,7 +128,7 @@ internal static partial class Program
         using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
         {
             controller.Start();
-            var rich = controller.Notes.Values.Single();
+            var rich = controller.Windows.Values.Single();
             PreviewSize(rich, 360, 330, "cream");
             rich.Editor.Rich.Document = FormattedDocuments.FromHtml(
                 "<h2>细节</h2><p>选中文字，再点下面的图标。</p><ul><li><b>粗体</b>、<i>斜体</i>、<u>下划线</u></li><li><span style='color:#C95555'>换个颜色</span></li></ul>", rich.Data.Appearance);
@@ -245,11 +245,11 @@ internal static partial class Program
 
     private static async Task PreviewReady(NoteController controller)
     {
-        foreach (var window in controller.Notes.Values) window.SaveNow();
+        foreach (var window in controller.Windows.Values) window.SaveNow();
         Keyboard.ClearFocus();
         // 等标签抽出、窗口淡入等动画播完；窗口多时动画起步会晚一些。
         await Task.Delay(600);
-        foreach (var window in controller.Notes.Values.Where(window => window.IsVisible)) window.UpdateLayout();
+        foreach (var window in controller.Windows.Values.Where(window => window.IsVisible)) window.UpdateLayout();
     }
 
     private static void PreviewScene(string name, int width, int height, params (Window Window, double X, double Y)[] notes)

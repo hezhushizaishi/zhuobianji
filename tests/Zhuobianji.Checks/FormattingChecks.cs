@@ -33,7 +33,7 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var rich = controller.Notes.Values.Single();
+        var rich = controller.Windows.Values.Single();
         rich.Left = 140; rich.Top = 120;
         rich.Editor.InsertLink(folderUri, "项目资料");
         rich.Editor.InsertPlain("\n");
@@ -153,7 +153,7 @@ internal static partial class Program
         forceMd.ChangeNoteFormat(NoteFormat.Markdown);
         Check(forceMd.Editor.TextContent.Contains("*斜体*"), "富文本导出常见斜体 Markdown 语法");
         await Task.Delay(600);
-        var expected = controller.Notes.Values.Select(window => window.Snapshot()).ToArray();
+        var expected = controller.Windows.Values.Select(window => window.Snapshot()).ToArray();
         File.WriteAllText(Path.Combine(root, "expected.json"), JsonSerializer.Serialize(expected));
         Check(controller.RequestExit() && store.LoadAll().Notes.Count == expected.Length &&
             store.LoadAll().Notes.Single(note => note.Id == plain.Data.Id).Text == raw, "三种格式自动保存并正常退出，纯文本尾部换行不丢");
@@ -165,14 +165,14 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        Check(controller.Notes.Count == expected.Length, "新进程恢复三种格式的便签数量");
+        Check(controller.Windows.Count == expected.Length, "新进程恢复三种格式的便签数量");
         foreach (var data in expected)
         {
-            var window = controller.Notes[data.Id];
+            var window = controller.Windows[data.Id];
             Check(window.Editor.TextContent == data.Text && window.Editor.Format == data.Format,
                 "重开恢复文字与编辑格式");
         }
-        var rich = controller.Notes.Values.Single(window => window.Editor.TextContent.Contains("项目资料"));
+        var rich = controller.Windows.Values.Single(window => window.Editor.TextContent.Contains("项目资料"));
         var link = Elements(rich.Editor.Rich.Document).OfType<Hyperlink>().First();
         var count = 0;
         rich.Editor.LinkOpener = _ => count++;

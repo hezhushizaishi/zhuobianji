@@ -78,7 +78,7 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var rich = controller.Notes.Values.Single();
+        var rich = controller.Windows.Values.Single();
         rich.Left = 140; rich.Top = 120; rich.Width = 500;
         rich.Editor.TextContent = "原来的正文\n";
         rich.Editor.Rich.CaretPosition = rich.Editor.Rich.Document.ContentEnd;

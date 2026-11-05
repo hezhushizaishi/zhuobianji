@@ -45,13 +45,13 @@ internal static partial class Program
         File.WriteAllText(store.GetPath(initialMain.Id), oldRecord.ToJsonString());
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var main = controller.MainNote!;
+        var main = controller.WindowOf(controller.Book.Main)!;
         main.UpdateLayout();
         Check(main.Data.CollectionOrder.Length == 0 && VisibleTabOrder(main).SequenceEqual(children.Select(child => child.Id)),
             "旧记录没有排序字段时保持原创建顺序");
-        var a = controller.Notes[children[0].Id];
-        var b = controller.Notes[children[1].Id];
-        var c = controller.Notes[children[2].Id];
+        var a = controller.Windows[children[0].Id];
+        var b = controller.Windows[children[1].Id];
+        var c = controller.Windows[children[2].Id];
         var originalButton = main.CollectionTabButtons[c.Data.Id];
         main.CollectionTabButtons[b.Data.Id].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         main.CollectionTabButtons[b.Data.Id].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
@@ -101,8 +101,8 @@ internal static partial class Program
         Check(VisibleTabOrder(main).SequenceEqual(new[] { c.Data.Id, b.Data.Id, a.Data.Id, added.Data.Id }),
             "新收纳项追加在现有顺序后面");
         controller.MoveCollectedNote(main, added.Data.Id, 0);
-        controller.ReleaseNote(b);
-        controller.DeleteNote(a);
+        controller.ReleaseNote(b.Entry);
+        controller.DeleteNote(a.Entry);
         main.UpdateLayout();
         Check(VisibleTabOrder(main).SequenceEqual(new[] { added.Data.Id, c.Data.Id }) &&
             store.LoadAll().Notes.Single(note => note.Id == c.Data.Id).Text == children[2].Text,
@@ -121,12 +121,12 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var main = controller.MainNote!;
+        var main = controller.WindowOf(controller.Book.Main)!;
         main.UpdateLayout();
         Check(VisibleTabOrder(main).SequenceEqual(expected) && main.Editor.TextContent == saved.Text &&
             SameCard(main.Snapshot(), saved), "独立进程恢复排序、正文和主窗口位置宽度");
         main.CollectionTabButtons[expected[0]].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-        Check(controller.Notes[expected[0]].IsVisible && controller.Notes[expected[0]].Data.Preview == "新增记录 D",
+        Check(controller.Windows[expected[0]].IsVisible && controller.Windows[expected[0]].Data.Preview == "新增记录 D",
             "重开后点击正确的收纳便签");
         Check(controller.RequestExit(), "重开后的排序正常保留");
         await Task.CompletedTask;

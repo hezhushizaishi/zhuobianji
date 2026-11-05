@@ -27,7 +27,7 @@ internal static partial class Program
         File.WriteAllText(store.GetPath(legacy.Id), oldJson.ToJsonString());
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var old = controller.Notes.Values.Single();
+        var old = controller.Windows.Values.Single();
         Check(old.Editor.TextContent == legacy.Text && old.Snapshot().Text == legacy.Text && old.Editor.Format == NoteFormat.RichText,
             "没有格式字段的早期纯文本记录无需导入，原文字和换行完整保留");
         var rich = controller.CreateNote();
@@ -76,7 +76,7 @@ internal static partial class Program
         Check(markdown.Editor.Source.Text == source, "源码与预览切换保留原始文本");
         markdown.SetMarkdownPreview(true);
         Check(controller.TrySetThemeMode(NoteThemeMode.Dark, out _) && NoteTheme.DarkMode &&
-            controller.Notes.Values.All(w => w.Resources["Surface"] == NoteTheme.For(w.Data.Appearance.Palette, true).Surface), "切到深色模式，所有便签一起变深");
+            controller.Windows.Values.All(w => w.Resources["Surface"] == NoteTheme.For(w.Data.Appearance.Palette, true).Surface), "切到深色模式，所有便签一起变深");
         // 程序现在是深色模式，这里只改配色以外的外观。
         var dark = new NoteAppearance { Palette = "mist", FontFamily = "Microsoft YaHei UI", FontSize = 19, Opacity = 0.9 };
         rich.ApplyAppearance(dark); rich.MarkDirty();
@@ -102,7 +102,7 @@ internal static partial class Program
         }
         Check(rich.SaveNow(), "保存失败后可正常重试");
         next.Editor.TextContent += "\n退出前待保存内容";
-        var expected = controller.Notes.Values.Select(w => w.Snapshot()).ToArray();
+        var expected = controller.Windows.Values.Select(w => w.Snapshot()).ToArray();
         File.WriteAllText(Path.Combine(root, "editing-expected.json"), JsonSerializer.Serialize(expected));
         Check(controller.RequestExit(), "退出保存两种格式的待写内容");
     }
@@ -113,23 +113,23 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "editing", "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        Check(controller.Notes.Count == expected.Length && controller.Preferences.Appearance.FontSize == 19 && controller.ThemeMode == NoteThemeMode.Dark && NoteTheme.DarkMode,
+        Check(controller.Windows.Count == expected.Length && controller.Preferences.Appearance.FontSize == 19 && controller.ThemeMode == NoteThemeMode.Dark && NoteTheme.DarkMode,
             "独立进程恢复便签数量、默认外观和深色模式");
         foreach (var data in expected)
         {
-            var window = controller.Notes[data.Id];
+            var window = controller.Windows[data.Id];
             Check(window.Editor.TextContent == data.Text && window.Editor.Format == data.Format && window.Editor.IsPreview == data.PreviewMarkdown &&
                 window.Data.Appearance == data.Appearance && window.Opacity == data.Appearance.Opacity && SameBounds(data, window.Snapshot()),
                 "独立进程恢复内容、格式、预览状态、外观及位置");
         }
-        var rich = controller.Notes.Values.First(w => w.Editor.TextContent.Contains("中文富文本"));
+        var rich = controller.Windows.Values.First(w => w.Editor.TextContent.Contains("中文富文本"));
         Check(HasBold(rich.Editor.Rich.Document) && Elements(rich.Editor.Rich.Document).OfType<System.Windows.Documents.List>().Any() &&
             Elements(rich.Editor.Rich.Document).OfType<Hyperlink>().Single().NavigateUri!.Host == "example.com" &&
             Elements(rich.Editor.Rich.Document).OfType<Span>().Any(s => s.TextDecorations.Any(d => d.Location == TextDecorationLocation.Strikethrough)),
             "重启保留富文本粗体、列表、删除线和链接目标");
         Check(Elements(rich.Editor.Rich.Document).OfType<Hyperlink>().All(h => ((SolidColorBrush)h.Foreground).Color == NoteTheme.For(rich.Data.Appearance).Link.Color),
             "深色外观及重启后链接仍清晰可读");
-        var markdown = controller.Notes.Values.Single(w => w.Editor.Format == NoteFormat.Markdown);
+        var markdown = controller.Windows.Values.Single(w => w.Editor.Format == NoteFormat.Markdown);
         Check(Elements(markdown.Editor.Preview.Document).OfType<System.Windows.Documents.Table>().Any(), "重启恢复 Markdown 预览排版");
         var created = controller.CreateNote();
         Check(created.Data.Appearance == controller.Preferences.Appearance && created.Editor.Format == NoteFormat.RichText, "重启后新建便签仍使用默认富文本和保存的外观");

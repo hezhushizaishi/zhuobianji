@@ -13,7 +13,7 @@ internal static partial class Program
         var store = new NoteStore(Path.Combine(root, "lifecycle", "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var first = controller.Notes.Values.Single();
+        var first = controller.Windows.Values.Single();
         var second = controller.CreateNote(first);
         first.Left = 120;
         first.Top = 130;
@@ -43,23 +43,23 @@ internal static partial class Program
         }
         Check(first.SaveNow() && !first.IsDirty && first.SaveError is null, "解除失败原因后可以重试保存");
         controller.HideNote(first);
-        Check(!first.IsVisible && first.Data.IsHidden && controller.Notes.Count == 2, "隐藏保留便签及数据");
+        Check(!first.IsVisible && first.Data.IsHidden && controller.Windows.Count == 2, "隐藏保留便签及数据");
         controller.ShowAll();
         Check(first.IsVisible && second.IsVisible && !first.Data.IsHidden, "托盘找回使用的显示链路恢复全部便签");
         first.Close();
-        Check(!first.IsVisible && controller.Notes.Count == 2, "关闭窗口等同隐藏，未删除便签");
+        Check(!first.IsVisible && controller.Windows.Count == 2, "关闭窗口等同隐藏，未删除便签");
         controller.ShowAll();
         var deleted = controller.CreateNote(second);
         deleted.Editor.TextContent = "待删除的内容";
-        Check(controller.DeleteNote(deleted) && controller.Notes.Count == 2 &&
+        Check(controller.DeleteNote(deleted.Entry) && controller.Windows.Count == 2 &&
             !File.Exists(store.GetPath(deleted.Data.Id)) && !Directory.Exists(Path.Combine(store.DirectoryPath, "Deleted")), "删除活动窗口不留副本");
         Capture(first, Path.Combine(root, "note-preview.png"));
         controller.HideNote(second);
         first.Editor.TextContent += "\n退出前刚输入的内容也必须保存。";
-        var expected = controller.Notes.Values.Select(w => w.Snapshot()).ToArray();
+        var expected = controller.Windows.Values.Select(w => w.Snapshot()).ToArray();
         File.WriteAllText(Path.Combine(root, "expected.json"), JsonSerializer.Serialize(expected));
         Check(controller.RequestExit(), "退出同步保存尚在防抖等待中的内容");
-        Check(controller.Notes.Count == 0 && store.LoadAll().Notes.Count == 2, "退出清理窗口而活动数据保留");
+        Check(controller.Windows.Count == 0 && store.LoadAll().Notes.Count == 2, "退出清理窗口而活动数据保留");
     }
 
     private static void BasicReload()
@@ -68,16 +68,16 @@ internal static partial class Program
         var store = new NoteStore(Path.Combine(root, "lifecycle", "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        Check(controller.Notes.Count == expected.Length, "新进程恢复同样数量的便签");
+        Check(controller.Windows.Count == expected.Length, "新进程恢复同样数量的便签");
         foreach (var data in expected)
         {
-            var window = controller.Notes[data.Id];
+            var window = controller.Windows[data.Id];
             Check(window.Editor.TextContent == data.Text && SameBounds(window.Snapshot(), data) && window.Topmost == data.IsPinned,
                 "新进程恢复文本、位置尺寸和置顶");
             Check(window.Data.IsHidden == data.IsHidden && window.IsVisible == !data.IsHidden, "新进程保持隐藏状态");
         }
         controller.ShowAll();
-        Check(controller.Notes.Values.All(w => w.IsVisible), "重启后仍能找回隐藏便签");
+        Check(controller.Windows.Values.All(w => w.IsVisible), "重启后仍能找回隐藏便签");
         Check(controller.RequestExit(), "重启后的正常退出成功");
     }
 }

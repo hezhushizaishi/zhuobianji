@@ -27,7 +27,7 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var note = controller.Notes.Values.Single();
+        var note = controller.Windows.Values.Single();
         note.Left = 200; note.Top = 120;
         note.UpdateLayout();
         // 单文件发布曾出现图标字体缺失；这里确认内嵌字体可用，图标本身的样式不做断言。
@@ -39,7 +39,7 @@ internal static partial class Program
         var beforeClose = JsonSerializer.Deserialize<NoteData>(File.ReadAllText(store.GetPath(note.Data.Id)))!;
         note.Editor.InsertPlain("普通便签关闭前刚写的文字");
         note.CloseButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-        Check(!note.IsVisible && note.Data.IsHidden && controller.Notes.ContainsKey(note.Data.Id) &&
+        Check(!note.IsVisible && note.Data.IsHidden && controller.Windows.ContainsKey(note.Data.Id) &&
             store.LoadAll().Notes.Single(data => data.Id == note.Data.Id).Text.Contains("关闭前刚写") &&
             !Application.Current.Windows.OfType<MessageDialog>().Any(),
             "普通便签 × 立即保存并隐藏，不弹删除框、不删除数据");
@@ -58,8 +58,8 @@ internal static partial class Program
         var second = controller.CreateNote(main, NoteFormat.Markdown);
         second.Editor.TextContent = "# 收纳记录 B";
         controller.CollectNote(second);
-        controller.ShowNote(first);
-        controller.ShowNote(second);
+        controller.ShowNote(first.Entry);
+        controller.ShowNote(second.Entry);
         first.Editor.InsertPlain("\n子便签关闭前新增");
         first.CloseButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         Check(!first.IsVisible && first.Data.IsHidden && first.Data.CollectedBy == main.Data.Id &&
@@ -82,9 +82,9 @@ internal static partial class Program
         main.Editor.InsertPlain("主便签关闭前新增");
         second.Editor.InsertPlain("\n主便签关闭前的待保存文字");
         main.CloseButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-        Check(!main.IsVisible && !first.IsVisible && !second.IsVisible && controller.MainNote == main &&
-            controller.CollectedNotes(main).Count() == 2 && first.Data.CollectedBy == main.Data.Id &&
-            second.Data.CollectedBy == main.Data.Id && controller.Notes.Count == 4,
+        Check(!main.IsVisible && !first.IsVisible && !second.IsVisible && controller.Book.Main == main.Entry &&
+            controller.Book.Collected(main.Entry).Count() == 2 && first.Data.CollectedBy == main.Data.Id &&
+            second.Data.CollectedBy == main.Data.Id && controller.Windows.Count == 4,
             "主便签 × 收起已展开子窗口并隐藏主窗口，收纳关系和数据保留");
         var saved = store.LoadAll().Notes;
         Check(saved.Single(data => data.Id == main.Data.Id).Text.Contains("主便签关闭前新增") &&
@@ -109,13 +109,14 @@ internal static partial class Program
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
         controller.ShowAll();
-        var main = controller.Notes[mainId];
-        var first = controller.CollectedNotes(main).Single(window => window.Data.Text.Contains("记录 A"));
-        Check(controller.Notes.Count == 4 && main.IsVisible && main.Editor.TextContent.Contains("主便签关闭前新增") &&
-            controller.CollectedNotes(main).All(child => !child.IsVisible),
+        var main = controller.Windows[mainId];
+        var first = controller.Book.Collected(main.Entry).Single(note => note.Data.Text.Contains("记录 A"));
+        Check(controller.Book.Notes.Count == 4 && main.IsVisible && main.Editor.TextContent.Contains("主便签关闭前新增") &&
+            controller.Book.Collected(main.Entry).All(child => !controller.IsShown(child)),
             "独立进程找回关闭的便签，数量、正文和收纳关系未丢失");
-        main.CollectionTabButtons[first.Data.Id].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-        Check(first.IsVisible && first.Editor.TextContent.Contains("子便签关闭前新增"),
+        main.CollectionTabButtons[first.Id].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        var firstWindow = controller.WindowOf(first)!;
+        Check(firstWindow.IsVisible && firstWindow.Editor.TextContent.Contains("子便签关闭前新增"),
             "重开后标签仍能找回已保存的子便签");
         Check(controller.RequestExit(), "恢复关闭数据后正常退出");
         await Task.CompletedTask;

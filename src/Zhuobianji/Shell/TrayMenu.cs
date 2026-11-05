@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
@@ -54,20 +55,21 @@ internal sealed class TrayMenu : IDisposable
         });
         menu.Items.Add(StartupItem);
         menu.Items.Add(new Separator());
-        if (controller.MainNote is { } main) Add(menu.Items, "打开收纳", SymbolRegular.PanelLeft20, () => controller.ShowNote(main));
+        if (controller.Book.Main is { } main) Add(menu.Items, "打开收纳", SymbolRegular.PanelLeft20, () => controller.ShowNote(main));
         Add(menu.Items, "显示所有便签", SymbolRegular.WindowMultiple20, controller.ShowAll);
         Add(menu.Items, "隐藏所有便签", SymbolRegular.EyeOff20, controller.HideAll);
         menu.Items.Add(new Separator());
         Add(menu.Items, "全部贴到桌面", SymbolRegular.Desktop20, () => controller.SetAllDesktopModes(true));
         Add(menu.Items, "全部恢复普通浮窗", SymbolRegular.Window20, () => controller.SetAllDesktopModes(false));
         menu.Items.Add(new Separator());
-        var notes = new MenuItem { Header = $"便签（{controller.Notes.Count}）", Icon = new SymbolIcon { Symbol = SymbolRegular.Notepad20 } };
+        var all = controller.Book.Notes;
+        var notes = new MenuItem { Header = $"便签（{all.Count}）", Icon = new SymbolIcon { Symbol = SymbolRegular.Notepad20 } };
         // 预览文字放进 TextBlock，下划线不会被当成快捷键标记。
-        foreach (var note in controller.Notes.Values)
+        foreach (var note in all.ToArray())
             Add(notes.Items, new TextBlock { Text = (note.Data.CollectedBy is not null ? "收纳 · " : note.Data.IsHidden ? "隐藏 · " : "") + note.Data.Preview,
                 MaxWidth = 280, TextTrimming = TextTrimming.CharacterEllipsis },
                 null, () => controller.ShowNote(note));
-        notes.IsEnabled = controller.Notes.Count > 0;
+        notes.IsEnabled = all.Count > 0;
         menu.Items.Add(notes);
         menu.Items.Add(new Separator());
         Add(menu.Items, "退出程序", SymbolRegular.Power20, () => controller.RequestExit());

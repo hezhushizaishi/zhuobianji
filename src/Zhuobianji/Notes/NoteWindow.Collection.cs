@@ -130,7 +130,7 @@ internal partial class NoteWindow
     }
     internal void RefreshCollectionState()
     {
-        var main = controller.MainNote;
+        var main = controller.Book.Main;
         SetMainItem.Visibility = !Data.IsCollectionMain && Data.CollectedBy is null && main is null
             ? Visibility.Visible : Visibility.Collapsed;
         CollectItem.Visibility = !Data.IsCollectionMain && Data.CollectedBy is null && main is not null
@@ -153,18 +153,20 @@ internal partial class NoteWindow
         CollectionRailToggle.ToolTip = Data.ShowCollectionRail ? "隐藏左侧标签" : "显示左侧标签";
         if (!Data.IsCollectionMain) return;
 
-        var children = controller.CollectedNotes(this).ToArray();
+        // 标签只看子便签的状态（NoteEntry），子便签不用开着窗口。
+        var children = controller.Book.Collected(Entry).ToArray();
         // 文字和显示状态更新只修改现有标签；移动窗口不重建整排控件。
-        foreach (var id in CollectionTabButtons.Keys.Where(id => children.All(child => child.Data.Id != id)).ToArray())
+        foreach (var id in CollectionTabButtons.Keys.Where(id => children.All(child => child.Id != id)).ToArray())
         {
             CollectionTabs.Children.Remove(CollectionTabButtons[id]);
             CollectionTabButtons.Remove(id);
         }
         foreach (var child in children)
         {
-            if (!CollectionTabButtons.TryGetValue(child.Data.Id, out var tab))
+            var shown = controller.IsShown(child);
+            if (!CollectionTabButtons.TryGetValue(child.Id, out var tab))
             {
-                tab = new ToggleButton { Style = (Style)FindResource("CollectionTab"), Tag = child.Data.Id,
+                tab = new ToggleButton { Style = (Style)FindResource("CollectionTab"), Tag = child.Id,
                     RenderTransform = new TranslateTransform(), ToolTip = "" };
                 ToolTipService.SetPlacement(tab, PlacementMode.Left);
                 ToolTipService.SetInitialShowDelay(tab, 450);
@@ -178,7 +180,7 @@ internal partial class NoteWindow
                 var menu = (ContextMenu)FindResource("CollectionTabMenu");
                 menu.DataContext = child;
                 tab.ContextMenu = menu;
-                CollectionTabButtons.Add(child.Data.Id, tab);
+                CollectionTabButtons.Add(child.Id, tab);
                 CollectionTabs.Children.Add(tab);
                 // 收纳进来的新标签淡入；启动时一次建好的不播。
                 if (IsVisible) NoteTheme.Reveal(tab);
@@ -188,15 +190,15 @@ internal partial class NoteWindow
             if (!ReferenceEquals(tab.Resources["Surface"], theme.Surface)) theme.ApplyTo(tab.Resources);
             var empty = string.IsNullOrWhiteSpace(child.Data.Text);
             tab.Content = empty ? "空白" : child.Data.Preview;
-            tab.Opacity = empty && !child.IsVisible ? 0.6 : 1;
+            tab.Opacity = empty && !shown ? 0.6 : 1;
             // 点击会先翻转 IsChecked；这里按子便签的实际显示状态改回来。
-            tab.IsChecked = child.IsVisible;
+            tab.IsChecked = shown;
             tab.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, child.Data.Preview);
             PullTab(tab);
         }
         for (var index = 0; index < children.Length; index++)
         {
-            var tab = CollectionTabButtons[children[index].Data.Id];
+            var tab = CollectionTabButtons[children[index].Id];
             if (CollectionTabs.Children[index] == tab) continue;
             CollectionTabs.Children.Remove(tab);
             CollectionTabs.Children.Insert(index, tab);
@@ -223,10 +225,10 @@ internal partial class NoteWindow
             CollectionScroll.VerticalOffset > 0.5, CollectionScroll.VerticalOffset < CollectionScroll.ScrollableHeight - 0.5);
 
     // 子便签展开时顶部对齐它的标签（屏幕坐标）；标签区隐藏或标签滚出视野时用最近的可见位置。
-    internal double CollectionTabTop(NoteWindow child)
+    internal double CollectionTabTop(NoteEntry child)
     {
         var cardTop = Top + ShadowMargin;
-        if (!CollectionRail.IsVisible || !CollectionTabButtons.TryGetValue(child.Data.Id, out var tab)) return cardTop;
+        if (!CollectionRail.IsVisible || !CollectionTabButtons.TryGetValue(child.Id, out var tab)) return cardTop;
         UpdateLayout();
         if (tab.ActualHeight == 0) return cardTop;
         var y = tab.TransformToAncestor(this).Transform(new Point()).Y - ((TranslateTransform)tab.RenderTransform).Y;
@@ -235,17 +237,17 @@ internal partial class NoteWindow
     }
 
     // 标签悬停预览：标题、正文开头三行、修改时间。
-    private static StackPanel TabPreview(NoteWindow child)
+    private StackPanel TabPreview(NoteEntry child)
     {
         var panel = new StackPanel { MaxWidth = 260 };
-        panel.Children.Add(new TextBlock { Text = child.Data.Preview, Style = (Style)child.FindResource("TabPreviewTitle") });
-        var lines = child.Editor.TextContent.Split('\n').Select(line => line.Trim().TrimStart('#', '>', '-', '*', ' ').Trim())
+        panel.Children.Add(new TextBlock { Text = child.Data.Preview, Style = (Style)FindResource("TabPreviewTitle") });
+        var lines = child.Data.Text.Split('\n').Select(line => line.Trim().TrimStart('#', '>', '-', '*', ' ').Trim())
             .Where(line => line.Length > 0).Skip(1).Take(3);
         foreach (var line in lines)
-            panel.Children.Add(new TextBlock { Text = line, Style = (Style)child.FindResource("TabPreviewLine") });
-        var state = child.IsVisible ? "单击收起" : "单击展开";
+            panel.Children.Add(new TextBlock { Text = line, Style = (Style)FindResource("TabPreviewLine") });
+        var state = controller.IsShown(child) ? "单击收起" : "单击展开";
         panel.Children.Add(new TextBlock { Text = $"{Ago(child.Data.UpdatedAt)}修改 · {state} · 可拖动排序",
-            Style = (Style)child.FindResource("TabPreviewNote") });
+            Style = (Style)FindResource("TabPreviewNote") });
         return panel;
     }
 
@@ -262,11 +264,11 @@ internal partial class NoteWindow
     }
 
     // 标签右键菜单（NoteWindow.xaml 的 CollectionTabMenu）；DataContext 是对应的子便签。
-    private static NoteWindow TabNote(object sender) => (NoteWindow)((FrameworkElement)sender).DataContext;
+    private static NoteEntry TabNote(object sender) => (NoteEntry)((FrameworkElement)sender).DataContext;
     private void OnTabExpand(object sender, RoutedEventArgs e) => controller.ExpandCollectedNote(TabNote(sender));
     private void OnTabCollapse(object sender, RoutedEventArgs e) => controller.CollapseCollectedNote(TabNote(sender));
     private void OnTabTakeOut(object sender, RoutedEventArgs e) => controller.ReleaseNote(TabNote(sender));
-    private async void OnTabDelete(object sender, RoutedEventArgs e) => await TabNote(sender).ConfirmDelete(this);
+    private async void OnTabDelete(object sender, RoutedEventArgs e) => await controller.ConfirmDelete(TabNote(sender), this);
 
     private void OnSetMain(object sender, RoutedEventArgs e) => controller.SetMainNote(this);
     private void OnCollect(object sender, RoutedEventArgs e) => controller.CollectNote(this);

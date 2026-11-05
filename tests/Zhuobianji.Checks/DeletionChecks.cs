@@ -34,7 +34,7 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var note = controller.Notes.Values.Single();
+        var note = controller.Windows.Values.Single();
         note.Editor.TextContent = "需要保留的记录";
         note.SaveNow();
         var other = controller.CreateNote(note);
@@ -44,7 +44,7 @@ internal static partial class Program
         Action clickDelete = () => note.DeleteButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         await ReplyToDeletion(clickDelete, "cancel", dialog =>
         {
-            Check(controller.Notes.ContainsKey(note.Data.Id) && File.Exists(store.GetPath(note.Data.Id)) &&
+            Check(controller.Windows.ContainsKey(note.Data.Id) && File.Exists(store.GetPath(note.Data.Id)) &&
                 Equals(dialog.CancelButton?.Content, "取消") && Equals(dialog.PrimaryButton.Content, "删除"),
                 "点击垃圾桶先显示取消／删除确认，确认前窗口和数据仍在");
             clickDelete();
@@ -58,18 +58,18 @@ internal static partial class Program
         Check(note.IsVisible && File.Exists(store.GetPath(note.Data.Id)) && note.Editor.TextContent.Contains("需要保留"),
             "取消保留原窗口和正文");
         await ReplyToDeletion(clickDelete, "close");
-        Check(controller.Notes.ContainsKey(note.Data.Id) && note.IsVisible,
+        Check(controller.Windows.ContainsKey(note.Data.Id) && note.IsVisible,
             "关闭确认框不删除便签");
         var menuDelete = note.MoreButton.ContextMenu.Items.OfType<MenuItem>().Single(item =>
             Equals(item.Header, "删除这张便签"));
         await ReplyToDeletion(() => menuDelete.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)), "cancel");
-        Check(controller.Notes.ContainsKey(note.Data.Id), "更多菜单删除同样先确认，取消不删除");
+        Check(controller.Windows.ContainsKey(note.Data.Id), "更多菜单删除同样先确认，取消不删除");
 
         await ReplyToDeletion(clickDelete, "delete");
         await Task.Delay(500);
-        Check(!controller.Notes.ContainsKey(note.Data.Id) &&
+        Check(!controller.Windows.ContainsKey(note.Data.Id) &&
             !Directory.EnumerateFiles(store.DirectoryPath, note.Data.Id.ToString("N") + "*").Any() &&
-            controller.Notes.ContainsKey(other.Data.Id), "确认后只永久删除目标和副本，计时器不会重新生成文件");
+            controller.Windows.ContainsKey(other.Data.Id), "确认后只永久删除目标和副本，计时器不会重新生成文件");
 
         controller.SetMainNote(other);
         var child = controller.CreateNote(other);
@@ -85,7 +85,7 @@ internal static partial class Program
         Check(child.Data.CollectedBy == other.Data.Id && !child.IsVisible &&
             other.CollectionTabButtons.ContainsKey(child.Data.Id), "收纳项取消删除后仍保持收纳与收起状态");
         await ReplyToDeletion(deleteChild, "delete");
-        Check(!controller.Notes.ContainsKey(child.Data.Id) && !other.CollectionTabButtons.ContainsKey(child.Data.Id) &&
+        Check(!controller.Windows.ContainsKey(child.Data.Id) && !other.CollectionTabButtons.ContainsKey(child.Data.Id) &&
             !File.Exists(store.GetPath(child.Data.Id)), "收纳项确认删除后清理该便签和标签");
 
         var retained = controller.CreateNote(other);
@@ -100,10 +100,10 @@ internal static partial class Program
                 "主便签确认说明释放收纳项，确认前不提前释放");
             CaptureDialog(dialog, Path.Combine(root, "delete-main-confirmation.png"));
         });
-        Check(controller.MainNote == other && retained.Data.CollectedBy == other.Data.Id,
+        Check(controller.Book.Main == other.Entry && retained.Data.CollectedBy == other.Data.Id,
             "取消删除主便签保留收纳关系");
         await ReplyToDeletion(deleteMain, "delete");
-        Check(controller.MainNote is null && retained.IsVisible && retained.Data.CollectedBy is null &&
+        Check(controller.Book.Main is null && retained.IsVisible && retained.Data.CollectedBy is null &&
             File.Exists(store.GetPath(retained.Data.Id)) && retained.Editor.TextContent.Contains("仍需保留"),
             "确认删除主便签只删自己，收纳便签和文字释放后保留");
         Check(controller.RequestExit(), "确认删除后剩余便签正常保存退出");

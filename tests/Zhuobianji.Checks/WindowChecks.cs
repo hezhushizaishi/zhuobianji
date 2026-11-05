@@ -27,7 +27,7 @@ internal static partial class Program
             using var store = new NoteStore(Path.Combine(root, "Data"));
             using var controller = new NoteController(store, () => { }, startup, enableHotkeys: false);
             controller.Start();
-            var note = controller.Notes.Values.Single();
+            var note = controller.Windows.Values.Single();
             note.Left = 120; note.Top = 120; note.Topmost = true;
             note.Editor.TextContent = "透明与拖动检查";
             note.SaveNow();

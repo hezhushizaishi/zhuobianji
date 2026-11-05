@@ -43,7 +43,7 @@ internal static partial class Program
                     legacyStore.LoadPreferences().ThemeMode is null, "准备好 0.8.x 形状的数据");
                 using var legacyController = new NoteController(legacyStore, () => { }, enableHotkeys: false);
                 legacyController.Start();
-                var legacyNote = legacyController.Notes[legacyMain.Id];
+                var legacyNote = legacyController.Windows[legacyMain.Id];
                 Check(legacyController.ThemeMode == NoteThemeMode.Dark && NoteTheme.DarkMode && legacyStore.LoadPreferences().ThemeMode == NoteThemeMode.Dark &&
                     legacyNote.Resources["Surface"] == NoteTheme.For("green", true).Surface,
                     "0.8.x 数据第一次启动按主便签定下深色模式，并马上存进设置");
@@ -54,7 +54,7 @@ internal static partial class Program
             using var store = new NoteStore(Path.Combine(root, "settings", "Data"));
             using var controller = new NoteController(store, () => { }, startup, enableHotkeys: false);
             controller.Start();
-            var note = controller.Notes.Values.Single();
+            var note = controller.Windows.Values.Single();
             note.Editor.TextContent = "设置调整前的文字与格式";
             note.SaveNow();
             var settings = controller.ShowSettings(note);

@@ -1,56 +1,37 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using Zhuobianji.Core;
 
 namespace Zhuobianji;
 
+// 收纳：关系存在 NoteBook 里（Collect / Release / Move / SetMain），这里管窗口的收起、展开和标签刷新。
 internal sealed partial class NoteController
 {
-    internal NoteWindow? MainNote => Notes.Values.FirstOrDefault(window => window.Data.IsCollectionMain);
-    internal IEnumerable<NoteWindow> RootNotes => Notes.Values.Where(window => window.Data.CollectedBy is null);
-    internal IEnumerable<NoteWindow> CollectedNotes(NoteWindow main) =>
-        Notes.Values.Where(window => window.Data.CollectedBy == main.Data.Id)
-            .OrderBy(window => Array.IndexOf(main.Data.CollectionOrder, window.Data.Id) is var index && index >= 0 ? index : int.MaxValue)
-            .ThenBy(window => window.Data.CreatedAt);
-
     internal bool MoveCollectedNote(NoteWindow main, Guid id, int insertionIndex)
     {
-        var order = CollectedNotes(main).Select(window => window.Data.Id).ToList();
-        var oldIndex = order.IndexOf(id);
-        if (oldIndex < 0) return false;
-        insertionIndex = Math.Clamp(insertionIndex, 0, order.Count);
-        if (insertionIndex > oldIndex) insertionIndex--;
-        if (insertionIndex == oldIndex) return true;
-        order.RemoveAt(oldIndex);
-        order.Insert(insertionIndex, id);
-        var saved = main.TryCommit(data => data with { CollectionOrder = order.ToArray() });
+        var saved = book.Move(main.Entry, id, insertionIndex);
         RefreshCollections();
         return saved;
     }
 
     internal void RefreshCollections()
     {
-        foreach (var window in Notes.Values) window.RefreshCollectionState();
+        foreach (var window in Windows.Values) window.RefreshCollectionState();
     }
-
-    internal void NoteChanged() => MainNote?.RefreshCollectionState();
 
     internal bool SetMainNote(NoteWindow window)
     {
-        if (MainNote is not null && MainNote != window || window.Data.CollectedBy is not null) return false;
-        var saved = window.TryCommit(data => data with { IsCollectionMain = true, CollectedBy = null });
+        var saved = book.SetMain(window.Entry);
         RefreshCollections();
         return saved;
     }
 
     internal bool CollectNote(NoteWindow window)
     {
-        if (MainNote is not { } main || main == window || window.Data.IsCollectionMain) return false;
-        if (!window.TryCommit(data => data with { CollectedBy = main.Data.Id, IsHidden = true })) return false;
+        if (!book.Collect(window.Entry)) return false;
         window.Hide();
-        ShowSaved(main, activate: true);
+        ShowSaved(book.Main!, activate: true);
         RefreshCollections();
         return true;
     }
@@ -59,16 +40,18 @@ internal sealed partial class NoteController
     // 窗口坐标含四周的阴影边距，卡片边缘 = 窗口边缘 ± ShadowMargin。
     private const double ExpandGap = 8;
 
-    internal bool ExpandCollectedNote(NoteWindow window)
+    internal bool ExpandCollectedNote(NoteEntry note)
     {
-        if (window.Data.CollectedBy is null || MainNote is not { } main) return false;
-        ShowSaved(main, activate: false);
+        if (note.Data.CollectedBy is null || book.Main is not { } mainNote) return false;
+        ShowSaved(mainNote, activate: false);
+        var main = WindowFor(mainNote);
+        var window = WindowFor(note);
         var slide = 0.0;
         if (!window.IsVisible)
         {
             var area = SystemParameters.WorkArea;
             var margin = NoteWindow.ShadowMargin;
-            var railLeft = main.Left + margin + (main.Data.ShowCollectionRail ? 0 : main.CollectionRailWidth);
+            var railLeft = main.Left + margin + (mainNote.Data.ShowCollectionRail ? 0 : main.CollectionRailWidth);
             var x = railLeft - ExpandGap - window.Width + margin;
             slide = 16;
             if (x + margin < area.Left)
@@ -77,27 +60,29 @@ internal sealed partial class NoteController
                 slide = -16;
             }
             window.Left = Math.Max(area.Left - margin, Math.Min(x, area.Right - window.Width + margin));
-            window.Top = Math.Max(area.Top - margin, Math.Min(main.CollectionTabTop(window) - margin, area.Bottom - window.Height + margin));
-            if (window.Data.IsOnDesktop && !window.IsDesktopAttached) SetDesktopMode(window, true);
+            window.Top = Math.Max(area.Top - margin, Math.Min(main.CollectionTabTop(note) - margin, area.Bottom - window.Height + margin));
+            if (note.Data.IsOnDesktop && !window.IsDesktopAttached) SetDesktopMode(window, true);
         }
-        ShowSaved(window, activate: true, slide);
+        ShowSaved(note, activate: true, slide);
         RefreshCollections();
         return true;
     }
 
-    internal bool CollapseCollectedNote(NoteWindow window) =>
-        window.Data.CollectedBy is not null && SaveAndHide(window);
-    internal void ToggleCollectedNote(NoteWindow window)
+    internal bool CollapseCollectedNote(NoteEntry note) =>
+        note.Data.CollectedBy is not null && SaveAndHide(note);
+
+    internal void ToggleCollectedNote(NoteEntry note)
     {
-        if (window.IsVisible) CollapseCollectedNote(window);
-        else ExpandCollectedNote(window);
+        if (IsShown(note)) CollapseCollectedNote(note);
+        else ExpandCollectedNote(note);
     }
 
-    internal bool ReleaseNote(NoteWindow window)
+    internal bool ReleaseNote(NoteEntry note)
     {
-        if (window.Data.CollectedBy is null) return true;
-        if (!window.TryCommit(data => data with { CollectedBy = null, IsHidden = false })) return false;
-        if (window.Data.IsOnDesktop && !window.IsDesktopAttached) SetDesktopMode(window, true);
+        if (note.Data.CollectedBy is null) return true;
+        if (!book.Release(note)) return false;
+        var window = WindowFor(note);
+        if (note.Data.IsOnDesktop && !window.IsDesktopAttached) SetDesktopMode(window, true);
         window.Reveal(activate: true);
         RefreshCollections();
         return true;
@@ -107,8 +92,7 @@ internal sealed partial class NoteController
     {
         if (!main.Data.IsCollectionMain || !main.SaveNow()) return null;
         var window = CreateNote(main, collectedBy: main.Data.Id);
-        ExpandCollectedNote(window);
+        ExpandCollectedNote(window.Entry);
         return window;
     }
-
 }

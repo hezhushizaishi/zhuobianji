@@ -34,7 +34,7 @@ internal sealed partial class NoteController
         if (dark == NoteTheme.DarkMode) return;
         NoteTheme.DarkMode = dark;
         // 只换显示，不标记修改：深浅色不存在便签里，换模式不算改了便签。
-        foreach (var window in Notes.Values) window.ApplyAppearance(window.Data.Appearance);
+        foreach (var window in Windows.Values) window.ApplyAppearance(window.Data.Appearance);
         RefreshCollections();
         settings?.ApplyThemeMode();
     }
@@ -66,12 +66,8 @@ internal sealed partial class NoteController
     internal bool TrySetFormatWarnings(bool show, out string? error) =>
         TrySavePreferences(Preferences with { ShowFormatWarnings = show }, "格式提示设置未保存", out error);
 
-    private bool TrySavePreferences(NotePreferences preferences, string failure, out string? error)
-    {
-        try { store.SavePreferences(preferences); Preferences = preferences; error = null; return true; }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
-        { error = failure + "：" + ex.Message; return false; }
-    }
+    private bool TrySavePreferences(NotePreferences preferences, string failure, out string? error) =>
+        book.TrySavePreferences(preferences, failure, out error);
 
     internal bool TryReadStartup(out bool enabled, out string? error)
     {
@@ -96,7 +92,7 @@ internal sealed partial class NoteController
 
     internal SettingsWindow ShowSettings(NoteWindow? note = null)
     {
-        note ??= Notes.Values.FirstOrDefault(w => w.IsVisible) ?? Notes.Values.FirstOrDefault();
+        note ??= Windows.Values.FirstOrDefault(w => w.IsVisible) ?? Windows.Values.FirstOrDefault();
         if (settings is not null && settings.TargetNote == note) { settings.Activate(); return settings; }
         settings?.Close();
         var window = new SettingsWindow(this, note);

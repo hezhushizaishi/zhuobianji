@@ -22,8 +22,8 @@ internal static partial class Program
         {
             controller.Start();
             await Task.Delay(150);
-            var note = controller.Notes[latest.Id];
-            Check(note.IsVisible && !note.Data.IsHidden && !controller.Notes[older.Id].IsVisible,
+            var note = controller.Windows[latest.Id];
+            Check(note.IsVisible && !note.Data.IsHidden && !controller.Windows[older.Id].IsVisible,
                 "全部隐藏后重启至少显示最近一张，其他隐藏便签不被全部展开");
             Check(ForegroundWindow() == new WindowInteropHelper(note).Handle && !note.Topmost && !note.Data.IsPinned,
                 "普通便签启动到前台，原非置顶偏好保持");
@@ -48,9 +48,9 @@ internal static partial class Program
         {
             controller.Start();
             await Task.Delay(100);
-            Check(controller.Notes[latest.Id].IsVisible && !controller.Notes[older.Id].IsVisible,
+            Check(controller.Windows[latest.Id].IsVisible && !controller.Windows[older.Id].IsVisible,
                 "再次启动恢复可见和隐藏状态，内容未重复创建");
-            Check(controller.Notes.Count == 2 && controller.Notes[latest.Id].Editor.TextContent == latest.Text,
+            Check(controller.Windows.Count == 2 && controller.Windows[latest.Id].Editor.TextContent == latest.Text,
                 "独立控制器重开后便签数量及内容保持");
         }
         using (var store = new NoteStore(Path.Combine(root, "new-computer", "Data")))
@@ -59,7 +59,7 @@ internal static partial class Program
             store.Save(offScreen);
             using var controller = new NoteController(store, () => { }, enableHotkeys: false);
             controller.Start();
-            var note = controller.Notes[offScreen.Id];
+            var note = controller.Windows[offScreen.Id];
             Check(note.Left < 999999 && note.Top < 999999 && note.IsVisible,
                 "换屏幕后原来在屏幕外的便签回到可见位置");
         }

@@ -18,25 +18,27 @@ using Zhuobianji.Core;
 
 namespace Zhuobianji;
 
-internal partial class NoteWindow : Window
+// 一张便签的窗口，只管界面；便签的数据和保存在 NoteEntry / NoteBook 里，这里通过 INoteView 交出正文和位置。
+internal partial class NoteWindow : Window, INoteView
 {
     private readonly NoteController controller;
     private readonly DesktopHost desktop;
     private bool permanentlyClosing;
-    private bool deleteConfirmationOpen;
     // 正文卡片四周留给阴影的透明边距，与 NoteWindow.xaml 里 Frame 的 Margin 一致；保存的位置尺寸只算卡片。
     internal const double ShadowMargin = 12;
     private const double MinCardWidth = 320, MinCardHeight = 260;
-    internal NoteData Data { get; private set; }
+    internal NoteEntry Entry { get; }
+    internal NoteData Data => Entry.Data;
     internal bool IsDesktopAttached => desktop.IsAttached;
     internal object DesktopDiagnostics => desktop.Diagnostics();
 
-    internal NoteWindow(NoteData data, NoteController controller)
+    internal NoteWindow(NoteEntry entry, NoteController controller)
     {
         InitializeComponent();
         this.controller = controller;
         desktop = new DesktopHost(this);
-        Data = data;
+        Entry = entry;
+        var data = entry.Data;
         ScaleTabs(RailScale(data.Width, data.Height));
         collectionRailWidth = data.IsCollectionMain ? RailWidthAt(railScale) : 0;
         MinWidth = MinCardWidth + CollectionRailWidth + 2 * ShadowMargin;
@@ -186,21 +188,7 @@ internal partial class NoteWindow : Window
     private void OnShowAll(object sender, RoutedEventArgs e) => controller.ShowAll();
     private void OnDesktop(object sender, RoutedEventArgs e) => controller.SetDesktopMode(this, true);
     private void OnFloating(object sender, RoutedEventArgs e) => controller.SetDesktopMode(this, false);
-    private async void OnDelete(object sender, RoutedEventArgs e) => await ConfirmDelete();
-
-    internal async Task ConfirmDelete(NoteWindow? owner = null)
-    {
-        if (deleteConfirmationOpen) return;
-        deleteConfirmationOpen = true;
-        try
-        {
-            if (await Dialogs.Confirm(owner ?? this, Data.Appearance, Data.IsCollectionMain ? "删除主便签" : "删除便签",
-                Data.IsCollectionMain ? "主便签会永久删除，无法撤销。\n收纳的便签会释放到桌面。" : "这张便签会永久删除，无法撤销。",
-                "删除", danger: true))
-                controller.DeleteNote(this);
-        }
-        finally { deleteConfirmationOpen = false; }
-    }
+    private async void OnDelete(object sender, RoutedEventArgs e) => await controller.ConfirmDelete(Entry, this);
     private void OnSave(object sender, RoutedEventArgs e) => SaveNow();
     private void OnExit(object sender, RoutedEventArgs e) => controller.RequestExit();
     private void OnFormatBar(object sender, RoutedEventArgs e) => SetFormatBar(FormatBar.Visibility != Visibility.Visible);
@@ -247,7 +235,7 @@ internal partial class NoteWindow : Window
     }
     internal void ApplyAppearance(NoteAppearance appearance)
     {
-        Data = Data with { Appearance = appearance };
+        Update(data => data with { Appearance = appearance });
         NoteTheme.For(appearance).ApplyTo(Resources);
         Opacity = appearance.Opacity;
         Editor.ApplyAppearance(appearance);

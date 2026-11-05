@@ -8,14 +8,17 @@ using Zhuobianji.Core;
 namespace Zhuobianji;
 
 // 便签保存：正文或状态变化后 400ms 防抖写入；拖动、缩放期间暂停，松手后续写。
-// 状态字段（隐藏、收纳、排序、置顶等）一律通过 Update 或 TryCommit 修改。
+// 状态字段（隐藏、收纳、排序、置顶等）一律通过 Update 或 TryCommit 修改，实际在 NoteBook 里改和存；
+// 保存时 NoteBook 通过 INoteView 向窗口要正文和位置（Capture），存完告诉窗口结果（Saved）。
 internal partial class NoteWindow
 {
     private readonly DispatcherTimer saveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    // 编辑器里有还没交给 NoteBook 的正文改动；保存时才把富文本序列化。
     private bool documentDirty;
+    private bool errorShown;
     private bool moving;
-    internal bool IsDirty { get; private set; }
-    internal string? SaveError { get; private set; }
+    internal bool IsDirty => Entry.IsDirty;
+    internal string? SaveError => Entry.SaveError;
     internal string SaveState { get; private set; } = "";
 
     private void InitializeSaving()
@@ -24,7 +27,7 @@ internal partial class NoteWindow
         saveTimer.Tick += (_, _) => { if (!moving) SaveNow(); };
         Editor.ContentChanged += () =>
         {
-            Data = Data with { Text = Editor.TextContent, Format = Editor.Format, PreviewMarkdown = Editor.IsPreview };
+            controller.Book.Update(Entry, data => data with { Text = Editor.TextContent, Format = Editor.Format, PreviewMarkdown = Editor.IsPreview });
             UpdateEditorButtons();
             UpdateTitle();
             MarkDirty();
@@ -37,76 +40,67 @@ internal partial class NoteWindow
     // 修改状态字段并排队保存。
     internal void Update(Func<NoteData, NoteData> change)
     {
-        var next = change(Data);
-        if (next == Data) return;
-        var mainChanged = next.IsCollectionMain != Data.IsCollectionMain;
-        Data = next;
-        if (mainChanged) ApplyCollectionMain();
-        MarkDirty(documentChanged: false);
+        var before = Data;
+        controller.Book.Update(Entry, change);
+        if (!ReferenceEquals(before, Data)) MarkDirty(documentChanged: false);
     }
 
     // 修改状态字段并立即保存；保存失败时恢复原状态，界面不会停在磁盘上不存在的状态。
-    internal bool TryCommit(Func<NoteData, NoteData> change)
+    internal bool TryCommit(Func<NoteData, NoteData> change) => controller.Book.TryCommit(Entry, change);
+
+    // 状态被改了（窗口自己改的，或控制器、NoteBook 改的）：界面跟上。
+    internal void OnDataChanged(NoteData before)
     {
-        var before = Data;
-        Update(change);
-        if (SaveNow()) return true;
-        Update(_ => before);
-        return false;
+        if (before.IsCollectionMain != Data.IsCollectionMain) ApplyCollectionMain();
     }
 
     internal void MarkDirty(bool documentChanged = true)
     {
         if (permanentlyClosing) return;
-        IsDirty = true;
+        controller.Book.MarkDirty(Entry);
         documentDirty |= documentChanged;
-        if (documentChanged && SaveError is null) ShowSaveState("保存中");
+        if (documentChanged && !errorShown) ShowSaveState("保存中");
         saveTimer.Stop();
         if (!moving) saveTimer.Start();
-        if (documentChanged) controller.NoteChanged();
     }
 
     // 当前内容和窗口几何；坐标与尺寸只算正文卡片，不含四周的阴影边距和主便签左侧的标签区。
-    internal NoteData Snapshot()
+    NoteData INoteView.Capture(NoteData data)
     {
         var bounds = desktop.IsAttached ? desktop.ScreenBounds()
             : WindowState == WindowState.Normal || RestoreBounds.IsEmpty ? new Rect(Left, Top, Width, Height) : RestoreBounds;
-        return (documentDirty ? Editor.Snapshot(Data) : Data) with
+        return (documentDirty ? Editor.Snapshot(data) : data) with
         {
             Left = bounds.Left + CollectionRailWidth + ShadowMargin,
             Top = bounds.Top + ShadowMargin,
             Width = bounds.Width - CollectionRailWidth - 2 * ShadowMargin,
             Height = bounds.Height - 2 * ShadowMargin,
-            IsPinned = desktop.IsAttached ? Data.IsPinned : Topmost,
-            UpdatedAt = DateTimeOffset.UtcNow
+            IsPinned = desktop.IsAttached ? data.IsPinned : Topmost
         };
     }
+
+    void INoteView.Saved(string? error)
+    {
+        if (error is not null) { ReportSaveError(error); return; }
+        var reportSaved = documentDirty || errorShown;
+        documentDirty = false;
+        errorShown = false;
+        if (reportSaved) ShowSaveState("已保存");
+    }
+
+    // 现在存的话会写进去的数据（检查和「新建便签」的位置用）。
+    internal NoteData Snapshot() => ((INoteView)this).Capture(Data) with { UpdatedAt = DateTimeOffset.UtcNow };
 
     internal bool SaveNow()
     {
         saveTimer.Stop();
-        if (!IsDirty) return true;
-        var reportSaved = documentDirty || SaveError is not null;
-        var snapshot = Snapshot();
-        if (!controller.Save(snapshot, out var error))
-        {
-            ReportSaveError(error!);
-            return false;
-        }
-        Data = snapshot;
-        IsDirty = false;
-        documentDirty = false;
-        SaveError = null;
-        if (reportSaved) ShowSaveState("已保存");
-        controller.NoteChanged();
-        return true;
+        return controller.Book.Save(Entry);
     }
 
     internal void ReportSaveError(string message)
     {
-        SaveError = message;
+        errorShown = true;
         ShowSaveState("保存失败 · 点击重试", message);
-        controller.NoteChanged();
     }
 
     // 平时只有一个很淡的勾，保存中更淡；失败时换成红字，提示里是失败原因。

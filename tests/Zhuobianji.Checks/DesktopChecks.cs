@@ -11,7 +11,7 @@ namespace Zhuobianji.Checks;
 internal static partial class Program
 {
     private static void SaveDesktopReport(NoteController controller, string name) => File.WriteAllText(Path.Combine(root, name),
-        JsonSerializer.Serialize(controller.Notes.Values.Select(w => new
+        JsonSerializer.Serialize(controller.Windows.Values.Select(w => new
         {
             NoteId = w.Data.Id, DesktopMode = w.Data.IsOnDesktop, PinnedPreference = w.Data.IsPinned,
             RuntimeTopmost = w.Topmost, Hidden = w.Data.IsHidden, Native = w.DesktopDiagnostics
@@ -27,7 +27,7 @@ internal static partial class Program
         File.WriteAllText(store.GetPath(original.Id), oldJson.ToJsonString());
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        var first = controller.Notes.Values.Single();
+        var first = controller.Windows.Values.Single();
         Check(!first.Data.IsOnDesktop && first.Editor.TextContent == original.Text && first.Topmost, "没有桌面字段的早期记录无需导入即可按原设置加载");
         var before = first.Snapshot();
         Check(controller.SetDesktopMode(first, true, showErrors: false), "正式便签成功切到桌面模式");
@@ -58,7 +58,7 @@ internal static partial class Program
         controller.HideNote(second);
         first.Editor.TextContent += "\n退出前尚未等待防抖的内容。";
         SaveDesktopReport(controller, "desktop-seed-native.json");
-        File.WriteAllText(Path.Combine(root, "desktop-expected.json"), JsonSerializer.Serialize(controller.Notes.Values.Select(w => w.Snapshot()).ToArray()));
+        File.WriteAllText(Path.Combine(root, "desktop-expected.json"), JsonSerializer.Serialize(controller.Windows.Values.Select(w => w.Snapshot()).ToArray()));
         Check(controller.RequestExit(), "桌面模式正常退出并保存待写入内容");
     }
 
@@ -68,10 +68,10 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "desktop", "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        Check(controller.Notes.Count == 2 && controller.Notes.Values.All(w => w.IsDesktopAttached && NativeChild(w)), "新进程自动恢复每张便签的桌面模式");
+        Check(controller.Windows.Count == 2 && controller.Windows.Values.All(w => w.IsDesktopAttached && NativeChild(w)), "新进程自动恢复每张便签的桌面模式");
         foreach (var data in expected)
         {
-            var window = controller.Notes[data.Id];
+            var window = controller.Windows[data.Id];
             Check(window.Editor.TextContent == data.Text && SameBounds(data, window.Snapshot()) && window.Data.IsPinned == data.IsPinned,
                 "桌面模式重开后文本、位置尺寸及置顶偏好一致");
             Check(window.Editor.Format == data.Format && window.Editor.IsPreview == data.PreviewMarkdown, "桌面模式恢复编辑格式和 Markdown 预览状态");
@@ -79,9 +79,9 @@ internal static partial class Program
                 "桌面模式重开后隐藏状态一致");
         }
         SaveDesktopReport(controller, "desktop-reload-native.json");
-        Check(controller.SetAllDesktopModes(false, showErrors: false) && controller.Notes.Values.All(w => !w.IsDesktopAttached), "托盘批量恢复浮窗链路成功");
+        Check(controller.SetAllDesktopModes(false, showErrors: false) && controller.Windows.Values.All(w => !w.IsDesktopAttached), "托盘批量恢复浮窗链路成功");
         controller.ShowAll();
-        Check(controller.SetAllDesktopModes(true, showErrors: false) && controller.Notes.Values.All(w => NativeChild(w)), "托盘批量桌面切换链路成功");
+        Check(controller.SetAllDesktopModes(true, showErrors: false) && controller.Windows.Values.All(w => NativeChild(w)), "托盘批量桌面切换链路成功");
         Check(controller.RequestExit(), "批量切换后正常退出");
     }
 }
