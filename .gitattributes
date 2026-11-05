@@ -1,0 +1,5 @@
+# 文本文件入库统一用 LF，检出时按系统换行（Windows 上是 CRLF）。
+* text=auto
+*.png binary
+*.ico binary
+*.otf binary
