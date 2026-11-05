@@ -122,7 +122,7 @@ internal partial class NoteEditor : UserControl
     {
         Hint.Visibility = text.Length == 0 && !IsPreview ? Visibility.Visible : Visibility.Collapsed;
         Hint.Foreground = NoteTheme.For(Appearance).Muted;
-        Hint.FontFamily = new FontFamily(Appearance.FontFamily);
+        Hint.FontFamily = NoteTheme.Font(Appearance.FontFamily);
         Hint.FontSize = Appearance.FontSize;
     }
 
@@ -193,18 +193,19 @@ internal partial class NoteEditor : UserControl
             else if (element is Hyperlink && element.Foreground is SolidColorBrush linkBrush && linkBrush.Color == oldTheme.Link.Color)
                 element.Foreground = theme.Link;
             if (element.ReadLocalValue(TextElement.FontSizeProperty) is double size) element.FontSize = size * value.FontSize / before.FontSize;
-            if (element.ReadLocalValue(TextElement.FontFamilyProperty) is FontFamily family && family.Source == before.FontFamily)
-                element.FontFamily = new FontFamily(value.FontFamily);
+            // 单独写着旧正文字体的，改成跟随正文字体（不把字体对象写到元素上，存储里只留系统字体名）。
+            if (element.ReadLocalValue(TextElement.FontFamilyProperty) is FontFamily family && family.Source == NoteTheme.Font(before.FontFamily).Source)
+                element.ClearValue(TextElement.FontFamilyProperty);
         }
         Appearance = value;
-        Rich.Document.FontFamily = new FontFamily(value.FontFamily);
+        Rich.Document.FontFamily = NoteTheme.Font(value.FontFamily);
         Rich.Document.FontSize = value.FontSize;
         Rich.Document.Foreground = theme.Text;
         FormattedDocuments.ApplyReadingLayout(Rich.Document, value);
         Rich.CaretBrush = theme.Text;
         Source.Foreground = theme.Text;
         Source.CaretBrush = theme.Text;
-        Source.FontFamily = new FontFamily(Format == NoteFormat.PlainText ? value.FontFamily : "Consolas, Microsoft YaHei UI");
+        Source.FontFamily = Format == NoteFormat.PlainText ? NoteTheme.Font(value.FontFamily) : new FontFamily("Consolas, Microsoft YaHei UI");
         Source.FontSize = value.FontSize;
         if (IsPreview) RefreshPreview();
         UpdateHint();

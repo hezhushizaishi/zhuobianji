@@ -43,10 +43,7 @@
        <StackPanel x:Name="CollectionTabs" Background="Transparent" />
       </ScrollViewer>
       <Button x:Name="CollectionNewButton" Grid.Row="1" Style="{StaticResource NewTab}" ToolTip="新建收纳便签" AutomationProperties.Name="新建收纳便签" Click="OnNewCollected">
-       <StackPanel Orientation="Horizontal">
-        <ui:SymbolIcon Symbol="Add20" FontSize="{DynamicResource TabFontSize}" />
-        <TextBlock Text="新建" Margin="4,0,0,0" VerticalAlignment="Center" />
-       </StackPanel>
+       <ui:SymbolIcon Symbol="Add20" FontSize="{DynamicResource NewTabIconSize}" />
       </Button>
      </Grid>
     </Grid>
@@ -153,13 +150,14 @@
        <StackPanel Orientation="Horizontal">
         <Button x:Name="ModeButton" Style="{StaticResource LabelButton}" Padding="8,0,6,0" ToolTip="切换编辑格式" Click="OnFormatMenu">
          <StackPanel Orientation="Horizontal">
+          <ui:SymbolIcon x:Name="ModeIcon" Symbol="DocumentText20" Margin="0,0,6,0" />
           <TextBlock x:Name="ModeLabel" Text="富文本" VerticalAlignment="Center" />
           <ui:SymbolIcon Symbol="ChevronDown20" FontSize="12" Margin="4,1,0,0" />
          </StackPanel>
          <Button.ContextMenu><ContextMenu>
-          <MenuItem x:Name="RichFormatItem" Header="富文本" Tag="RichText" IsCheckable="True" Click="OnChangeFormat" />
-          <MenuItem x:Name="MarkdownFormatItem" Header="Markdown" Tag="Markdown" IsCheckable="True" Click="OnChangeFormat" />
-          <MenuItem x:Name="PlainFormatItem" Header="纯文本" Tag="PlainText" IsCheckable="True" Click="OnChangeFormat" />
+          <MenuItem x:Name="RichFormatItem" Header="富文本" Tag="RichText" IsCheckable="True" Click="OnChangeFormat"><MenuItem.Icon><ui:SymbolIcon Symbol="DocumentText20" /></MenuItem.Icon></MenuItem>
+          <MenuItem x:Name="MarkdownFormatItem" Header="Markdown" Tag="Markdown" IsCheckable="True" Click="OnChangeFormat"><MenuItem.Icon><ui:SymbolIcon Symbol="Markdown20" /></MenuItem.Icon></MenuItem>
+          <MenuItem x:Name="PlainFormatItem" Header="纯文本" Tag="PlainText" IsCheckable="True" Click="OnChangeFormat"><MenuItem.Icon><ui:SymbolIcon Symbol="TextT20" /></MenuItem.Icon></MenuItem>
          </ContextMenu></Button.ContextMenu>
         </Button>
         <Border x:Name="ModeSeparator" Style="{StaticResource ToolSeparator}" />

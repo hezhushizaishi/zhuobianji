@@ -88,6 +88,12 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
         return Frozen(new LinearGradientBrush(stops, new Point(0, 0), new Point(0, 1)));
     }
 
+    // 正文字体。思源黑体随程序打包（Assets/Fonts，简体中文子集的常规和粗体，SIL OFL 1.1），不用另装；其余用系统字体。
+    // 外观里存的是字体名，用到时经这里换成 FontFamily。
+    internal const string BundledFont = "思源黑体";
+    private static readonly FontFamily Bundled = new(new Uri("pack://application:,,,/Zhuobianji;component/"), "./Assets/Fonts/#Source Han Sans CN");
+    internal static FontFamily Font(string name) => name == BundledFont ? Bundled : new FontFamily(name);
+
     // 正文排版：行高按字号倍数，段落与列表只留很小的段后距。
     internal const double LineHeightFactor = 1.45;
     internal const double ParagraphSpacing = 3;

@@ -220,9 +220,11 @@ internal partial class NoteWindow : Window
 
     internal void SetMarkdownPreview(bool enabled)
     {
+        var changed = Editor.IsPreview != enabled;
         Editor.SetPreview(enabled);
         Update(data => data with { PreviewMarkdown = enabled });
         UpdateEditorButtons();
+        if (changed && IsVisible) NoteTheme.Reveal(Editor);
     }
 
     private void UpdateEditorButtons()
@@ -230,6 +232,7 @@ internal partial class NoteWindow : Window
         var editor = Editor;
         var markdown = editor.Format == NoteFormat.Markdown;
         var rich = editor.Format == NoteFormat.RichText;
+        ModeIcon.Symbol = FormatIcon(editor.Format);
         ModeLabel.Text = editor.Format switch { NoteFormat.RichText => "富文本", NoteFormat.Markdown => "Markdown", _ => "纯文本" };
         RichFormatItem.IsChecked = editor.Format == NoteFormat.RichText;
         MarkdownFormatItem.IsChecked = editor.Format == NoteFormat.Markdown;
@@ -320,9 +323,19 @@ internal partial class NoteWindow : Window
 
     internal void ChangeNoteFormat(NoteFormat target)
     {
+        var changed = Editor.Format != target;
         Editor.ChangeFormat(target);
         UpdateEditorButtons();
+        if (changed && IsVisible) NoteTheme.Reveal(Editor);
     }
+
+    // 三种格式各有一个图标：底栏格式键、格式菜单和「新建…便签」菜单用同一组。
+    internal static SymbolRegular FormatIcon(NoteFormat format) => format switch
+    {
+        NoteFormat.RichText => SymbolRegular.DocumentText20,
+        NoteFormat.Markdown => SymbolRegular.Markdown20,
+        _ => SymbolRegular.TextT20
+    };
     private void OnMore(object sender, RoutedEventArgs e)
     {
         RefreshCollectionState();

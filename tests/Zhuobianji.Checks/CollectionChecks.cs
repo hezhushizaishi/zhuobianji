@@ -91,10 +91,19 @@ internal static partial class Program
         Check(rich.IsVisible && markdown.IsVisible && main.Editor.IsVisible, "可同时展开多张，主便签正文不切换");
         markdown.PreviewButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         Check(markdown.Editor.IsPreview && !main.Editor.IsPreview &&
-            markdown.ModeLabel.Text == "Markdown", "展开的 Markdown 使用自己的工具和预览");
+            markdown.ModeLabel.Text == "Markdown" && markdown.ModeIcon.Symbol == Wpf.Ui.Controls.SymbolRegular.Markdown20, "展开的 Markdown 使用自己的工具和预览");
         markdown.CloseButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         Check(!markdown.IsVisible && rich.IsVisible && markdown.Data.CollectedBy == main.Data.Id,
             "子便签顶部 × 只收起自己");
+        // 深浅色是整个程序的模式：切到深色时，收着的标签、展开的子便签和主便签一起变深，配色各自保留。
+        Check(controller.TrySetThemeMode(NoteThemeMode.Dark, out _) &&
+            new[] { rich, markdown, plain }.All(child => child.Data.Appearance.Dark &&
+                main.CollectionTabButtons[child.Data.Id].Resources["HeaderFill"] == NoteTheme.For(child.Data.Appearance).HeaderFill) &&
+            main.Resources["Surface"] == NoteTheme.For(main.Data.Appearance).Surface && main.Data.Appearance.Dark,
+            "切到深色模式，左侧标签和子便签跟着主便签一起变深");
+        Check(controller.TrySetThemeMode(NoteThemeMode.Light, out _) &&
+            main.CollectionTabButtons[markdown.Data.Id].Resources["HeaderFill"] == NoteTheme.For(markdown.Data.Appearance).HeaderFill && !markdown.Data.Appearance.Dark,
+            "切回浅色，标签一起变回来");
         var originalTab = main.CollectionTabButtons[rich.Data.Id];
         main.Left += 5;
         Check(ReferenceEquals(originalTab, main.CollectionTabButtons[rich.Data.Id]), "移动主便签不重建标签控件");

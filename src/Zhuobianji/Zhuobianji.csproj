@@ -15,6 +15,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets\zhuobianji.ico" />
+    <Resource Include="Assets\Fonts\*.otf" />
     <EmbeddedResource Include="..\..\LICENSE" LogicalName="Zhuobianji.Notices.LICENSE" />
     <EmbeddedResource Include="..\..\THIRD-PARTY-NOTICES.txt" LogicalName="Zhuobianji.Notices.THIRD-PARTY-NOTICES.txt" />
     <EmbeddedResource Include="..\..\WPF-UI-THIRD-PARTY-NOTICES.txt" LogicalName="Zhuobianji.Notices.WPF-UI-THIRD-PARTY-NOTICES.txt" />

@@ -47,9 +47,22 @@ internal static partial class Program
             settings.PaletteItems[2].IsChecked = true;
             settings.SizeSlider.Value = 20;
             settings.OpacitySlider.Value = 85;
-            settings.DarkSwitch.IsChecked = true;
+            settings.DarkMode.IsChecked = true;
             Check(note.Data.Appearance.Palette == "yellow" && note.Data.Appearance.FontSize == 20 && note.Data.Appearance.Opacity == 0.85 && note.Data.Appearance.Dark &&
                 note.Editor.TextContent == "设置调整前的文字与格式", "设置控件即时应用配色、字号、透明度和深色，不改便签文字");
+            Check(controller.ThemeMode == NoteThemeMode.Dark && store.LoadPreferences().ThemeMode == NoteThemeMode.Dark && controller.Themed(controller.Preferences.Appearance).Dark,
+                "深浅色是整个程序的模式，存进设置，之后新建的便签也是深色");
+            settings.SystemMode.IsChecked = true;
+            using (var personalize = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
+                Check(controller.ThemeMode == NoteThemeMode.System && note.Data.Appearance.Dark == (personalize?.GetValue("AppsUseLightTheme") is int light && light == 0),
+                    "「跟随系统」按 Windows 的应用深浅色设置");
+            settings.DarkMode.IsChecked = true;
+            var font = settings.FontMenu.Items.OfType<System.Windows.Controls.MenuItem>().Single(item => (string)item.Tag == NoteTheme.BundledFont);
+            font.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent));
+            var typefaces = NoteTheme.Font(NoteTheme.BundledFont).GetTypefaces();
+            Check(note.Data.Appearance.FontFamily == NoteTheme.BundledFont && note.Editor.Rich.Document.FontFamily == NoteTheme.Font(NoteTheme.BundledFont) &&
+                typefaces.Any(t => t.Weight == FontWeights.Normal && t.TryGetGlyphTypeface(out _)) && typefaces.Any(t => t.Weight == FontWeights.Bold && t.TryGetGlyphTypeface(out _)),
+                "字体可以选随程序打包的思源黑体，常规和粗体都能用，不用另装");
             Check(settings.Resources["Surface"] == NoteTheme.For(note.Data.Appearance).Surface && settings.PaletteLabel.Text == "淡黄",
                 "设置窗口跟着换成便签的新配色，色块旁显示配色名称");
             settings.StartupSwitch.IsChecked = true;
@@ -70,7 +83,7 @@ internal static partial class Program
             CaptureDialog(settings, Path.Combine(root, "settings-data-dark.png"));
             settings.Close();
             var reopened = controller.ShowSettings(note);
-            Check(reopened.SizeSlider.Value == 20 && reopened.DarkSwitch.IsChecked == true && reopened.StartupSwitch.IsChecked == false,
+            Check(reopened.SizeSlider.Value == 20 && reopened.DarkMode.IsChecked == true && reopened.FontLabel.Text == NoteTheme.BundledFont && reopened.StartupSwitch.IsChecked == false,
                 "重新打开设置恢复外观与实际自启状态");
             Check(controller.RequestExit() && !reopened.IsVisible, "退出程序同时关闭设置窗口并保存便签");
         }

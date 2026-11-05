@@ -17,6 +17,55 @@ internal sealed partial class NoteController
         return false;
     }
 
+    // 深浅色是整个程序的模式：所有便签、左侧标签、弹窗和托盘菜单一起变，配色仍是每张便签自己选。
+    // 每张便签外观里的 Dark 统一由这里写入；「跟随系统」读 Windows 的应用深浅色设置，系统切换时跟着变。
+    internal NoteThemeMode ThemeMode => Preferences.ThemeMode ?? NoteThemeMode.Light;
+    internal bool IsDark { get; private set; }
+
+    internal NoteAppearance Themed(NoteAppearance appearance) => appearance.Dark == IsDark ? appearance : appearance with { Dark = IsDark };
+
+    internal bool TrySetThemeMode(NoteThemeMode mode, out string? error)
+    {
+        if (!TrySavePreferences(Preferences with { ThemeMode = mode }, "深浅色设置未保存", out error)) return false;
+        ApplyThemeMode();
+        return true;
+    }
+
+    private void ApplyThemeMode()
+    {
+        var dark = ResolveDark();
+        if (dark == IsDark) return;
+        IsDark = dark;
+        // 只换显示，不标记修改：深浅色不算改了便签，下次保存时顺带写进去，启动时也会按模式重新写入。
+        foreach (var window in Notes.Values) window.ApplyAppearance(Themed(window.Data.Appearance));
+        RefreshCollections();
+        settings?.ApplyThemeMode();
+    }
+
+    private bool ResolveDark() => ThemeMode switch
+    {
+        NoteThemeMode.Dark => true,
+        NoteThemeMode.System => SystemIsDark(),
+        _ => false
+    };
+
+    private static bool SystemIsDark()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            return key?.GetValue("AppsUseLightTheme") is int light && light == 0;
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException) { return false; }
+    }
+
+    // 系统切换深浅色时会发这个通知（在系统事件的线程上），转回界面线程再处理。
+    private void OnSystemPreferenceChanged(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category == Microsoft.Win32.UserPreferenceCategory.General && ThemeMode == NoteThemeMode.System)
+            dispatcher.BeginInvoke(() => { if (!disposed) ApplyThemeMode(); });
+    }
+
     internal bool TrySetFormatWarnings(bool show, out string? error) =>
         TrySavePreferences(Preferences with { ShowFormatWarnings = show }, "格式提示设置未保存", out error);
 

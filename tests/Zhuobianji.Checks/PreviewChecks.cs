@@ -71,6 +71,15 @@ internal static partial class Program
                 newBottom <= main.RailViewport.ActualHeight + 0.5 && newBottom > main.RailViewport.ActualHeight - 12,
                 "标签放不下时滚动，「新建」钉在标签区最下面，不用滚动就能看到");
             PreviewScene("rail.png", 623, 521, (main, 24, 32));
+            // 「新建」是单独凸起的小键：不压到卡片下面，键面不透明（标签区后面是桌面）。
+            var key = main.CollectionNewButton;
+            var keyRight = key.TransformToAncestor(main).Transform(new Point(key.ActualWidth, 0)).X;
+            var cardLeft = main.NoteCard.TransformToAncestor(main).Transform(new Point()).X;
+            Check(keyRight < cardLeft - 4 && Opaque(key, new Point(4, key.ActualHeight / 2)), "「新建」是单独凸起的小键，不压到卡片下面，键面不透明");
+            // 深色模式：主便签、标签和展开的子便签一起变深，配色各自保留。
+            controller.TrySetThemeMode(NoteThemeMode.Dark, out _);
+            await PreviewReady(controller);
+            PreviewScene("rail-dark.png", 623, 521, (main, 24, 32));
             controller.RequestExit();
         }
 
@@ -144,6 +153,10 @@ internal static partial class Program
             await Task.Delay(300);
             PreviewPart("menu.png", menu);
             menu.IsOpen = false;
+            rich.ModeButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            await Task.Delay(300);
+            PreviewPart("format-menu.png", rich.ModeButton.ContextMenu);
+            rich.ModeButton.ContextMenu.IsOpen = false;
 
             // 托盘菜单和弹窗：和便签同一套配色、菜单和按键。
             var tray = controller.Tray!;
@@ -156,10 +169,13 @@ internal static partial class Program
             PreviewPart("tray-menu.png", tray.Menu);
             tray.Menu.IsOpen = false;
             await PreviewDialog("settings.png", controller.ShowSettings(rich));
-            await PreviewDialog("settings-dark.png", controller.ShowSettings(dark));
             await PreviewDialog("confirm.png", new MessageDialog(rich.Data.Appearance, "删除便签", "这张便签会永久删除，无法撤销。", "删除",
                 confirm: true, danger: true, width: 400) { Owner = rich });
+            // 深浅色是整个程序的模式：切到深色拍深色的设置和链接窗口，再切回来。
+            controller.TrySetThemeMode(NoteThemeMode.Dark, out _);
+            await PreviewDialog("settings-dark.png", controller.ShowSettings(dark));
             await PreviewDialog("link-dialog.png", new LinkWindow(dark.Data.Appearance, "https://example.com/docs/start") { Owner = dark });
+            controller.TrySetThemeMode(NoteThemeMode.Light, out _);
 
             var backdrop = new Window { Left = rich.Left - 40, Top = rich.Top - 40, Width = rich.Width + 80, Height = rich.Height + 80,
                 Topmost = true, WindowStyle = WindowStyle.None, ShowInTaskbar = false, Background = NoteTheme.B("#E7ECEE") };
@@ -193,6 +209,19 @@ internal static partial class Program
         await Task.Delay(300);
         PreviewPart(name, dialog);
         dialog.Close();
+    }
+
+    // 元素在 point 处画出来是不是完全不透明（用 VisualBrush 画，不受元素在父级里的位置影响）。
+    private static bool Opaque(FrameworkElement element, Point point)
+    {
+        var image = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth), (int)Math.Ceiling(element.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+        var scene = new DrawingVisual();
+        using (var drawing = scene.RenderOpen())
+            drawing.DrawRectangle(new VisualBrush(element), null, new Rect(0, 0, element.ActualWidth, element.ActualHeight));
+        image.Render(scene);
+        var pixel = new byte[4];
+        image.CopyPixels(new Int32Rect((int)point.X, (int)point.Y, 1, 1), pixel, 4, 0);
+        return pixel[3] == 255;
     }
 
     private static void PreviewPart(string name, FrameworkElement part)

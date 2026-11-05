@@ -12,7 +12,7 @@ namespace Zhuobianji;
 
 internal partial class SettingsWindow : NoteDialog
 {
-    private static readonly string[] Fonts = ["Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", "SimSun", "Consolas"];
+    private static readonly string[] Fonts = ["Microsoft YaHei UI", NoteTheme.BundledFont, "Microsoft YaHei", "Segoe UI", "SimSun", "Consolas"];
     private readonly NoteController controller;
     private bool initializing = true;
     private bool hotkeysDirty;
@@ -20,7 +20,7 @@ internal partial class SettingsWindow : NoteDialog
     private readonly Dictionary<TextBox, HotkeyBinding> hotkeys = [];
     internal NoteWindow? TargetNote { get; }
 
-    internal SettingsWindow(NoteController controller, NoteWindow? note) : base(note?.Data.Appearance ?? controller.Preferences.Appearance)
+    internal SettingsWindow(NoteController controller, NoteWindow? note) : base(note?.Data.Appearance ?? controller.Themed(controller.Preferences.Appearance))
     {
         InitializeComponent();
         this.controller = controller;
@@ -31,7 +31,8 @@ internal partial class SettingsWindow : NoteDialog
         SetHotkey(ToggleNotesHotkey, controller.Preferences.Hotkeys.ToggleNotes);
         var appearance = note?.Data.Appearance ?? controller.Preferences.Appearance;
         NoteLabel.Text = note is null ? "没有便签" : "这张便签：" + note.Data.Preview;
-        AppearancePage.IsEnabled = note is not null;
+        NotePanel.IsEnabled = note is not null;
+        ThemeButton(controller.ThemeMode).IsChecked = true;
         foreach (var (key, name, swatch) in NoteTheme.Palettes)
         {
             var item = new RadioButton { Style = (Style)FindResource("PaletteSwatch"), Background = swatch, Tag = key, ToolTip = name,
@@ -44,11 +45,10 @@ internal partial class SettingsWindow : NoteDialog
         font = appearance.FontFamily;
         foreach (var family in Fonts.Contains(font) ? Fonts : Fonts.Append(font))
         {
-            var item = new MenuItem { Header = new TextBlock { Text = family, FontFamily = new FontFamily(family) }, Tag = family };
+            var item = new MenuItem { Header = new TextBlock { Text = family, FontFamily = NoteTheme.Font(family) }, Tag = family };
             item.Click += OnFontChosen;
             FontMenu.Items.Add(item);
         }
-        DarkSwitch.IsChecked = appearance.Dark;
         SizeSlider.Value = appearance.FontSize;
         OpacitySlider.Value = appearance.Opacity * 100;
         if (controller.TryReadStartup(out var enabled, out var error)) StartupSwitch.IsChecked = enabled;
@@ -74,7 +74,7 @@ internal partial class SettingsWindow : NoteDialog
         var palette = PaletteItems.FirstOrDefault(item => item.IsChecked == true);
         PaletteLabel.Text = palette?.ToolTip as string ?? "";
         FontLabel.Text = font;
-        FontLabel.FontFamily = new FontFamily(font);
+        FontLabel.FontFamily = NoteTheme.Font(font);
         foreach (MenuItem item in FontMenu.Items) item.IsChecked = (string)item.Tag == font;
         FontSizeLabel.Text = $"{SizeSlider.Value:0}";
         OpacityLabel.Text = $"{OpacitySlider.Value:0}%";
@@ -96,7 +96,7 @@ internal partial class SettingsWindow : NoteDialog
     private void OnAppearanceChanged(object sender, RoutedEventArgs e)
     {
         if (initializing || TargetNote is null || PaletteItems.FirstOrDefault(item => item.IsChecked == true) is not { } palette) return;
-        var appearance = new NoteAppearance { Palette = (string)palette.Tag, Dark = DarkSwitch.IsChecked == true,
+        var appearance = new NoteAppearance { Palette = (string)palette.Tag, Dark = controller.IsDark,
             FontFamily = font, FontSize = SizeSlider.Value, Opacity = OpacitySlider.Value / 100 };
         TargetNote.ApplyAppearance(appearance);
         TargetNote.MarkDirty();
@@ -104,6 +104,27 @@ internal partial class SettingsWindow : NoteDialog
         UpdateLabels();
         Status.Text = "";
     }
+
+    private RadioButton ThemeButton(NoteThemeMode mode) => mode switch
+    {
+        NoteThemeMode.Dark => DarkMode,
+        NoteThemeMode.System => SystemMode,
+        _ => LightMode
+    };
+
+    private void OnThemeMode(object sender, RoutedEventArgs e)
+    {
+        if (initializing) return;
+        var mode = DarkMode.IsChecked == true ? NoteThemeMode.Dark : SystemMode.IsChecked == true ? NoteThemeMode.System : NoteThemeMode.Light;
+        if (controller.TrySetThemeMode(mode, out var error)) { Status.Text = ""; return; }
+        initializing = true;
+        ThemeButton(controller.ThemeMode).IsChecked = true;
+        initializing = false;
+        Status.Text = error;
+    }
+
+    // 程序换了深浅色（在这里选的，或跟随系统变了）：设置窗口跟着所属便签换色。
+    internal void ApplyThemeMode() => SetAppearance(TargetNote?.Data.Appearance ?? controller.Themed(controller.Preferences.Appearance));
 
     private void OnSaveDefaults(object sender, RoutedEventArgs e)
     {

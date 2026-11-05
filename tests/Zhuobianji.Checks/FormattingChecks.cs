@@ -140,6 +140,9 @@ internal static partial class Program
         plain.Editor.InsertPlain(raw);
         Check(plain.Editor.TextContent == raw && plain.Editor.Source.IsVisible && !plain.Editor.Rich.IsVisible &&
             !plain.Editor.IsPreview && plain.ModeLabel.Text == "纯文本", "纯文本保留符号与换行，不自动转换 Markdown");
+        Check(plain.ModeIcon.Symbol == Wpf.Ui.Controls.SymbolRegular.TextT20 && rich.ModeIcon.Symbol == Wpf.Ui.Controls.SymbolRegular.DocumentText20 &&
+            plain.PlainFormatItem.Icon is Wpf.Ui.Controls.SymbolIcon { Symbol: Wpf.Ui.Controls.SymbolRegular.TextT20 },
+            "格式键和格式菜单用图标区分富文本、Markdown 和纯文本");
         var converted = controller.CreateNote();
         converted.Editor.InsertLink(folderUri, "资料");
         converted.ChangeNoteFormat(NoteFormat.PlainText);

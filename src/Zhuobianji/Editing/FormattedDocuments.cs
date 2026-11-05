@@ -29,7 +29,7 @@ internal static class FormattedDocuments
         var theme = NoteTheme.For(appearance);
         var document = new FlowDocument
         {
-            PagePadding = new Thickness(0), FontFamily = new FontFamily(appearance.FontFamily),
+            PagePadding = new Thickness(0), FontFamily = NoteTheme.Font(appearance.FontFamily),
             FontSize = appearance.FontSize, Foreground = theme.Text, LineHeight = appearance.FontSize * NoteTheme.LineHeightFactor
         };
         var paragraphStyle = new Style(typeof(Paragraph));
@@ -60,7 +60,7 @@ internal static class FormattedDocuments
     }
     internal static void ApplyReadingLayout(FlowDocument document, NoteAppearance appearance, bool pasted = false)
     {
-        document.FontFamily = new FontFamily(appearance.FontFamily);
+        document.FontFamily = NoteTheme.Font(appearance.FontFamily);
         document.FontSize = appearance.FontSize;
         document.LineHeight = appearance.FontSize * NoteTheme.LineHeightFactor;
         var theme = NoteTheme.For(appearance);

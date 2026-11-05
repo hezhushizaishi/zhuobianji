@@ -17,6 +17,7 @@ internal sealed partial class NoteController : IDisposable
     private bool disposed;
     private readonly bool enableHotkeys;
     private GlobalHotkeys? hotkeys;
+    private readonly System.Windows.Threading.Dispatcher dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
     internal Dictionary<Guid, NoteWindow> Notes { get; } = [];
     internal TrayMenu? Tray => tray;
     internal NotePreferences Preferences { get; private set; } = new();
@@ -37,6 +38,14 @@ internal sealed partial class NoteController : IDisposable
         try { Preferences = store.LoadPreferences(); }
         catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidDataException or IOException or UnauthorizedAccessException)
         { readErrors.Add("默认外观读取失败，暂用初始外观：" + ex.Message); }
+        // 0.8.x 的设置里没有深浅色模式：先按主便签（没有就按默认外观）的深浅来，在设置里选过以后才存下来。
+        if (Preferences.ThemeMode is null)
+        {
+            var main = loaded.Notes.FirstOrDefault(data => data.IsCollectionMain);
+            Preferences = Preferences with { ThemeMode = (main?.Appearance ?? Preferences.Appearance).Dark ? NoteThemeMode.Dark : NoteThemeMode.Light };
+        }
+        IsDark = ResolveDark();
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnSystemPreferenceChanged;
         var modeErrors = new List<string>();
         tray = new TrayMenu(this);
         if (enableHotkeys)
@@ -87,7 +96,7 @@ internal sealed partial class NoteController : IDisposable
 
     private NoteWindow AddWindow(NoteData data)
     {
-        var window = new NoteWindow(data, this);
+        var window = new NoteWindow(data with { Appearance = Themed(data.Appearance) }, this);
         Notes.Add(data.Id, window);
         return window;
     }
@@ -101,7 +110,7 @@ internal sealed partial class NoteController : IDisposable
         {
             Left = previousBounds is null ? workArea.Right - 470 - offset : previousBounds.Left + 24,
             Top = previousBounds is null ? workArea.Top + 90 + offset : previousBounds.Top + 24,
-            Width = 420, Height = 440, Format = format ?? Preferences.DefaultFormat, Appearance = Preferences.Appearance, CollectedBy = collectedBy,
+            Width = 420, Height = 440, Format = format ?? Preferences.DefaultFormat, Appearance = Themed(Preferences.Appearance), CollectedBy = collectedBy,
             IsOnDesktop = previous?.Data.IsOnDesktop ?? (Notes.Count > 0 && Notes.Values.All(w => w.Data.IsOnDesktop))
         };
         var window = AddWindow(data);
@@ -236,6 +245,7 @@ internal sealed partial class NoteController : IDisposable
     {
         if (disposed) return;
         disposed = true;
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnSystemPreferenceChanged;
         hotkeys?.Dispose();
         hotkeys = null;
         tray?.Dispose();

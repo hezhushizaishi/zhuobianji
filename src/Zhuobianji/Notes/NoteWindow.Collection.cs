@@ -53,9 +53,10 @@ internal partial class NoteWindow
         resources["TabMargin"] = new Thickness(S(12), 0, 0, tabGap);
         resources["TabPadding"] = new Thickness(S(10), 0, tuck + S(4), 0);
         resources["TabFontSize"] = Math.Min(16, S(12));
-        resources["NewTabHeight"] = S(26);
+        resources["NewTabHeight"] = S(24);
+        resources["NewTabWidth"] = S(38);
         resources["NewTabMargin"] = new Thickness(S(12), 0, 0, 0);
-        resources["NewTabFontSize"] = Math.Min(14, S(11));
+        resources["NewTabIconSize"] = Math.Min(20, S(14));
         foreach (ToggleButton tab in CollectionTabs.Children) PullTab(tab);
     }
 

@@ -222,28 +222,39 @@
   </Style.Triggers>
  </Style>
 
- <!-- 新建收纳便签：紧跟在最后一个标签后面的虚线空标签，尺寸同样来自标签区资源（NewTabHeight NewTabMargin NewTabFontSize）。 -->
+ <!-- 新建收纳便签：标签列底下一枚单独凸起的小键，只有「+」。和标签靠形状区分：四角都圆，不压到卡片下面。
+      键面用顶栏色，不透明（标签区后面是桌面）；凸起、悬停和按下同 KeyButton。尺寸来自标签区资源（NewTabHeight NewTabWidth NewTabMargin NewTabIconSize）。 -->
  <Style x:Key="NewTab" TargetType="Button">
   <Setter Property="Height" Value="{DynamicResource NewTabHeight}" />
+  <Setter Property="Width" Value="{DynamicResource NewTabWidth}" />
   <Setter Property="Margin" Value="{DynamicResource NewTabMargin}" />
-  <Setter Property="Padding" Value="{DynamicResource TabPadding}" />
-  <Setter Property="FontSize" Value="{DynamicResource NewTabFontSize}" />
+  <Setter Property="HorizontalAlignment" Value="Left" />
   <Setter Property="Foreground" Value="{DynamicResource Muted}" />
   <Setter Property="Cursor" Value="Hand" />
   <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
    <Grid Background="Transparent">
-    <Border x:Name="Hover" Background="{DynamicResource Subtle}" CornerRadius="8,0,0,8" Opacity="0" />
-    <Rectangle x:Name="Dash" RadiusX="8" RadiusY="8" Stroke="{DynamicResource Muted}" StrokeThickness="1" StrokeDashArray="3 2" Opacity="0.5" />
-    <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+    <Border x:Name="Lip" Background="{DynamicResource Shade}" CornerRadius="8" Margin="0,1,0,-1" />
+    <Border Background="{DynamicResource HeaderFill}" BorderBrush="{DynamicResource Bevel}" BorderThickness="1" CornerRadius="8" />
+    <Border x:Name="Hover" Background="{DynamicResource Glow}" CornerRadius="8" Opacity="0" />
+    <Border x:Name="Press" Background="{DynamicResource Inset}" BorderBrush="{DynamicResource Shade}" BorderThickness="0,1,0,0" CornerRadius="8" Opacity="0" />
+    <ContentPresenter x:Name="Content" HorizontalAlignment="Center" VerticalAlignment="Center" />
    </Grid>
    <ControlTemplate.Triggers>
     <Trigger Property="IsMouseOver" Value="True">
-     <Setter TargetName="Hover" Property="Opacity" Value="1" />
-     <Setter TargetName="Dash" Property="Opacity" Value="0.9" />
      <Setter Property="Foreground" Value="{DynamicResource Text}" />
+     <Trigger.EnterActions><BeginStoryboard><Storyboard>
+      <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+     </Storyboard></BeginStoryboard></Trigger.EnterActions>
+     <Trigger.ExitActions><BeginStoryboard><Storyboard FillBehavior="Stop">
+      <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="{x:Static local:NoteTheme.Fast}" EasingFunction="{x:Static local:NoteTheme.Ease}" />
+     </Storyboard></BeginStoryboard></Trigger.ExitActions>
     </Trigger>
-    <Trigger Property="IsPressed" Value="True"><Setter TargetName="Hover" Property="Background" Value="{DynamicResource Inset}" /></Trigger>
+    <Trigger Property="IsPressed" Value="True">
+     <Setter TargetName="Lip" Property="Visibility" Value="Hidden" />
+     <Setter TargetName="Press" Property="Opacity" Value="1" />
+     <Setter TargetName="Content" Property="RenderTransform"><Setter.Value><TranslateTransform Y="1" /></Setter.Value></Setter>
+    </Trigger>
    </ControlTemplate.Triggers>
   </ControlTemplate></Setter.Value></Setter>
  </Style>
