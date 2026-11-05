@@ -26,6 +26,7 @@ internal static partial class Program
     {
         ["storage"] = Sync(StorageChecks),
         ["state"] = Sync(StateChecks),
+        ["documents"] = Sync(DocumentsChecks),
         ["basic"] = BasicChecks,
         ["basic-reload"] = Sync(BasicReload),
         ["desktop"] = DesktopChecks,
@@ -46,7 +47,6 @@ internal static partial class Program
         ["rail"] = RailChecks,
         ["rail-reload"] = RailReload,
         ["paste"] = PasteChecks,
-        ["layout"] = LayoutChecks,
         ["links"] = LinksChecks,
         ["formatting"] = FormattingChecks,
         ["formatting-reload"] = Sync(FormattingReload),

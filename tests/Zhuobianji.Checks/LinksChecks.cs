@@ -13,9 +13,10 @@ namespace Zhuobianji.Checks;
 
 internal static partial class Program
 {
+    // 链接名称的规则（Markdown、网页、本地路径、长网址、旧名称、复制）在 documents 组；这里是真窗口里的：
+    // 底部插入链接和链接窗口、预览里插入、只改地址时名称跟着变、纯文本没有入口、存下再读、截图。
     private static async Task LinksChecks()
     {
-        var appearance = new NoteAppearance();
         var web = new Uri("https://example.com/reference/a?source=note");
         var folder = Path.Combine(root, "项目资料");
         Directory.CreateDirectory(folder);
@@ -27,58 +28,12 @@ internal static partial class Program
         Hyperlink Link(FlowDocument document) => Elements(document).OfType<Hyperlink>().Single();
 
         var emptyMd = "[](" + web.AbsoluteUri + ")";
-        var emptyLink = Link(FormattedDocuments.FromMarkdown(emptyMd, appearance));
-        Check(Label(emptyLink) == "example.com/reference/a?source=note" && emptyLink.NavigateUri == web,
-            "空名称 Markdown 链接显示域名和路径，保留完整目标");
-        var named = Link(FormattedDocuments.FromMarkdown("[参考资料](" + web.AbsoluteUri + ")", appearance));
-        var explicitUrl = Link(FormattedDocuments.FromMarkdown("[" + web.AbsoluteUri + "](" + web.AbsoluteUri + ")", appearance));
-        Check(Label(named) == "参考资料" && Label(explicitUrl) == web.AbsoluteUri,
-            "已有名称保持原样，名称本身是网址也不擅自缩短");
-        var auto = Link(FormattedDocuments.FromMarkdown(web.AbsoluteUri, appearance));
-        var angleAuto = Link(FormattedDocuments.FromMarkdown("<" + web.AbsoluteUri + ">", appearance));
-        Check(Label(auto) == NoteLinks.ShortName(web) && Label(angleAuto) == NoteLinks.ShortName(web) && auto.NavigateUri == web && angleAuto.NavigateUri == web,
-            "Markdown 裸网址和自动链接预览显示域名和路径");
-        var emptyFile = Link(FormattedDocuments.FromHtml("<p><a href=\"" + fileUri.AbsoluteUri + "\"></a></p>", appearance));
-        var emptyFolder = Link(FormattedDocuments.FromHtml("<p><a href=\"" + folderUri.AbsoluteUri + "\"></a></p>", appearance));
-        Check(Label(emptyFile) == "说明.txt" && Label(emptyFolder) == "项目资料",
-            "无名称本地链接显示文件名或文件夹名");
-        var htmlNamed = Link(FormattedDocuments.FromHtml("<p><a href=\"" + web.AbsoluteUri + "\">阅读资料</a></p>", appearance));
-        Check(Label(htmlNamed) == "阅读资料", "网页粘贴保留原链接文字");
-        var longName = NoteLinks.ShortName(new Uri("https://www.example.com/" + new string('a', 50) + "/end.html"));
-        Check(longName.Length == 40 && longName.StartsWith("example.com/aaa") && longName.Contains('…') && longName.EndsWith("end.html") &&
-            NoteLinks.ShortName(new Uri("http://localhost:8080/api/")) == "localhost:8080/api",
-            "长网址省略中间、保留结尾，省去 www，保留非默认端口");
-
-        // 0.8.x 存下的自动链接名只有域名：读取时换成域名和路径，自己起的名称不动。
-        var repo = new Uri("https://github.com/hezhushizaishi/zhuobianji");
-        var legacyXaml = "<Section xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xml:space=\"preserve\"><Paragraph><Run>仓库 </Run>" +
-            "<Hyperlink NavigateUri=\"" + repo.AbsoluteUri + "\"><Run>github.com</Run></Hyperlink><Run> 和 </Run>" +
-            "<Hyperlink NavigateUri=\"" + repo.AbsoluteUri + "\"><Run>我的项目</Run></Hyperlink></Paragraph></Section>";
-        var legacy = new NoteEditor();
-        legacy.Initialize(new NoteData { Format = NoteFormat.RichText, Text = "仓库 github.com 和 我的项目", RichText = legacyXaml, Appearance = appearance });
-        var legacyLinks = Elements(legacy.Rich.Document).OfType<Hyperlink>().ToArray();
-        Check(Label(legacyLinks[0]) == "github.com/hezhushizaishi/zhuobianji" && Label(legacyLinks[1]) == "我的项目" &&
-            legacy.TextContent == "仓库 github.com/hezhushizaishi/zhuobianji 和 我的项目",
-            "旧版只显示域名的链接读取后显示域名和路径，自己起的名称不变");
-
-        // 复制成纯文字：自动名称换成完整地址，自己起的名称后面括上地址；只选中半个链接时照原样。
-        legacy.Rich.SelectAll();
-        var copied = new DataObject(DataFormats.UnicodeText, legacy.Rich.Selection.Text);
-        legacy.Rich.RaiseEvent(new DataObjectCopyingEventArgs(copied, false));
-        Check(((string)copied.GetData(DataFormats.UnicodeText)!).TrimEnd() == "仓库 " + repo.AbsoluteUri + " 和 我的项目 (" + repo.AbsoluteUri + ")",
-            "复制带链接的正文，纯文字里带完整地址");
-        legacy.Rich.Selection.Select(legacyLinks[1].ContentStart.GetPositionAtOffset(2)!, legacyLinks[1].ContentEnd);
-        var partial = new DataObject(DataFormats.UnicodeText, legacy.Rich.Selection.Text);
-        legacy.Rich.RaiseEvent(new DataObjectCopyingEventArgs(partial, false));
-        Check((string)partial.GetData(DataFormats.UnicodeText)! == "的项目", "只复制半个链接名称时不附加地址");
 
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
         var rich = controller.Windows.Values.Single();
         rich.Left = 140; rich.Top = 120;
-        var pasted = LoadPaste(rich.Editor.PreparePaste(new DataObject(DataFormats.UnicodeText, emptyMd)));
-        Check(Label(Link(pasted)) == NoteLinks.ShortName(web), "富文本粘贴空名称 Markdown 链接能识别并显示");
         var word = new Run("项目资料");
         rich.Editor.Rich.Document = new FlowDocument(new Paragraph(word));
         rich.Editor.Rich.Selection.Select(word.ContentStart, word.ContentEnd);

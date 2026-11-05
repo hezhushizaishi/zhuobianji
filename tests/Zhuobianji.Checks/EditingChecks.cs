@@ -43,25 +43,7 @@ internal static partial class Program
         var boldButton = ((System.Windows.Controls.WrapPanel)rich.FormatBar.Content).Children.OfType<Button>().First();
         Check(ReferenceEquals(boldButton.CommandTarget, rich.Editor.Rich), "格式按钮实际绑定到原生编辑器");
         Capture(rich, Path.Combine(root, "rich-preview.png"));
-
-        var html = new DataObject();
-        html.SetData(DataFormats.Html, "Version:1.0\r\nStartHTML:000000\r\n<html><body><!--StartFragment--><p><b>网页中文</b><br>第二行</p><a href='https://example.com/a'>链接</a><!--EndFragment--></body></html>");
-        html.SetData(DataFormats.UnicodeText, "网页中文\n第二行");
-        var pasteEvent = new DataObjectPastingEventArgs(html, false, DataFormats.Html) { RoutedEvent = DataObject.PastingEvent };
-        rich.Editor.Rich.RaiseEvent(pasteEvent);
-        Check(pasteEvent.FormatToApply == DataFormats.Xaml, "实际粘贴事件接入自动格式识别");
-        var pastedHtml = LoadPaste(pasteEvent.DataObject);
-        Check(FormattedDocuments.PlainText(pastedHtml).Contains("网页中文") && HasBold(pastedHtml) && Elements(pastedHtml).OfType<Hyperlink>().Any(),
-            "网页剪贴板自动识别 CF_HTML，保留中文、粗体、换行和链接");
-        var mdPaste = new DataObject(DataFormats.UnicodeText, "# 标题\n\n**重点**\n\n- 一项\n- 二项");
-        Check(HasBold(LoadPaste(rich.Editor.PreparePaste(mdPaste))), "明显 Markdown 粘贴自动转为富文本排版");
-        var regular = new DataObject(DataFormats.UnicodeText, "普通文字 - 含标点");
-        Check(FormattedDocuments.PlainText(LoadPaste(rich.Editor.PreparePaste(regular))) == "普通文字 - 含标点", "普通文字保留原文，不误触发 Markdown 转换");
-        var rtf = new DataObject(DataFormats.Rtf, "{\\rtf1\\ansi original}");
-        rtf.SetData(DataFormats.Html, "<p>不应覆盖原生富文本</p>");
-        Check(FormattedDocuments.PlainText(LoadPaste(rich.Editor.PreparePaste(rtf))) == "original", "RTF 内容优先保留并统一便签排版");
-        var raw = new NoteEditor(); raw.Initialize(new NoteData()); raw.InsertPlain("**按原文保留**");
-        Check(raw.TextContent == "**按原文保留**" && !HasBold(raw.Rich.Document), "按原文粘贴保留 Markdown 符号");
+        // 粘贴识别（CF_HTML、Markdown、普通文字、RTF、按原文）在 documents 组。
 
         var markdown = controller.CreateNote(format: NoteFormat.Markdown);
         markdown.Left = 660; markdown.Top = 150; markdown.Width = 440; markdown.Height = 570;

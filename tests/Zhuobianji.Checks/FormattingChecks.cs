@@ -16,20 +16,14 @@ namespace Zhuobianji.Checks;
 
 internal static partial class Program
 {
+    // 地址识别、粘贴识别和文档里的格式互转在 documents 组；这里是真窗口里的：插入链接后的悬停和右键、
+    // 不按 Ctrl 单击不打开、链接卡片、链接窗口、格式提示框、切换格式后编辑区和格式键跟着换、重开。
     private static async Task FormattingChecks()
     {
         var folder = Path.Combine(root, "本地资料 有空格");
         Directory.CreateDirectory(folder);
-        var file = Path.Combine(folder, "说明.txt");
-        File.WriteAllText(file, "测试文档");
-        Check(NoteLinks.TryResolve(folder, out var folderUri) && folderUri.IsFile && NoteLinks.ShortName(folderUri) == "本地资料 有空格",
-            "中文带空格的本地文件夹识别为 file 链接和短名称");
-        Check(NoteLinks.TryResolve(file, out var fileUri) && NoteLinks.ShortName(fileUri) == "说明.txt" &&
-            NoteLinks.LaunchInfo(folderUri).FileName == folder &&
-            NoteLinks.LaunchInfo(folderUri).UseShellExecute, "文件夹交给系统打开，目标路径完整保留");
+        NoteLinks.TryResolve(folder, out var folderUri);
         var webUri = new Uri("https://example.com/a/long?name=中文");
-        Check(NoteLinks.ShortName(webUri) == "example.com/a/long?name=中文" && NoteLinks.LaunchInfo(webUri).FileName == webUri.AbsoluteUri,
-            "网页显示域名和路径，仍将完整网址交给默认浏览器");
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
@@ -96,22 +90,6 @@ internal static partial class Program
         Check(dialog.ShowDialog() == true && dialog.TargetUri == folderUri && dialog.LinkName == "项目资料",
             "链接窗口可提交名称与本地地址");
 
-        var pastedPath = LoadPaste(rich.Editor.PreparePaste(new DataObject(DataFormats.UnicodeText, folder)));
-        Check(Elements(pastedPath).OfType<Hyperlink>().Single().NavigateUri == folderUri &&
-            FormattedDocuments.PlainText(pastedPath) == "本地资料 有空格", "粘贴本地路径自动成为短名称链接");
-        var pastedWeb = LoadPaste(rich.Editor.PreparePaste(new DataObject(DataFormats.UnicodeText, webUri.AbsoluteUri)));
-        Check(FormattedDocuments.PlainText(pastedWeb) == "example.com/a/long?name=中文", "粘贴裸网址自动显示域名和路径");
-        var fileMd = LoadPaste(rich.Editor.PreparePaste(new DataObject(DataFormats.UnicodeText, DocumentText.MarkdownLink("资料", folderUri))));
-        Check(Elements(fileMd).OfType<Hyperlink>().Single().NavigateUri == folderUri, "粘贴只有本地链接的 Markdown 也能识别");
-        var pastedMd = LoadPaste(rich.Editor.PreparePaste(new DataObject(DataFormats.UnicodeText, "# 标题\n\n**重点**\n\n- 第一项")));
-        Check(HasBold(pastedMd) && Elements(pastedMd).OfType<System.Windows.Documents.List>().Any(),
-            "富文本自动识别 Markdown 标题、粗体和列表");
-        var forceMd = controller.CreateNote();
-        forceMd.Editor.InsertMarkdown("这是 *斜体*");
-        Check(Elements(forceMd.Editor.Rich.Document).Any(element => element.FontStyle == FontStyles.Italic),
-            "显式按 Markdown 粘贴可处理不够明显的语法");
-        Check(((Paragraph)forceMd.Editor.Rich.Document.Blocks.FirstBlock!).Margin.Bottom == 3,
-            "富文本新段落间距已收紧");
         Check(rich.FormatConversionNotice(NoteFormat.PlainText) is not null &&
             rich.FormatConversionNotice(NoteFormat.Markdown) is not null, "可能丢排版的切换给出具体差异提示");
 
@@ -150,8 +128,6 @@ internal static partial class Program
             "转为纯文本去掉样式并保留链接实际地址");
         converted.ChangeNoteFormat(NoteFormat.Markdown);
         Check(converted.Editor.TextContent.Contains(folder), "纯文本转 Markdown 不擅自改写文字");
-        forceMd.ChangeNoteFormat(NoteFormat.Markdown);
-        Check(forceMd.Editor.TextContent.Contains("*斜体*"), "富文本导出常见斜体 Markdown 语法");
         await Task.Delay(600);
         var expected = controller.Windows.Values.Select(window => window.Snapshot()).ToArray();
         File.WriteAllText(Path.Combine(root, "expected.json"), JsonSerializer.Serialize(expected));
