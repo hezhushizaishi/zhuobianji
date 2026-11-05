@@ -54,6 +54,9 @@ internal static partial class Program
             "{\"Palette\":\"green\",\"Dark\":true,\"FontFamily\":\"Microsoft YaHei UI\",\"FontSize\":17,\"Opacity\":1}")!;
         Check(legacyAppearance.LegacyDark == true && legacyAppearance.Palette == "green" &&
             !JsonSerializer.Serialize(legacyAppearance with { LegacyDark = null }).Contains("Dark"), "0.8.x 外观里的深浅色照常读入，清掉后不再写出");
+        var withPreview = JsonSerializer.Deserialize<NoteData>("{\"Id\":\"" + Guid.NewGuid() + "\",\"Text\":\"第一行\\n第二行\",\"Preview\":\"旧的预览\"}")!;
+        Check(withPreview.Preview == "第一行" && !JsonSerializer.Serialize(withPreview).Contains("Preview\""),
+            "第一行预览由正文算出、不写进文件，旧文件里的 Preview 字段照常忽略");
         Console.WriteLine($"PASS storage：{passed} 项检查");
     }
 }

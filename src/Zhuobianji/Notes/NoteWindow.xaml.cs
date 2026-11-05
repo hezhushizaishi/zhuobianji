@@ -49,8 +49,9 @@ internal partial class NoteWindow : Window, INoteView
         Top = data.Top - ShadowMargin;
         KeepReachable();
         Topmost = data.IsPinned;
+        // 编辑器载入时已经按外观排好正文，这里只套窗口自己的配色和透明度。
         Editor.Initialize(data);
-        ApplyAppearance(data.Appearance);
+        ApplyWindowAppearance(data.Appearance);
         UpdateEditorButtons();
         UpdateTitle();
         UpdatePinnedButton();
@@ -236,9 +237,14 @@ internal partial class NoteWindow : Window, INoteView
     internal void ApplyAppearance(NoteAppearance appearance)
     {
         Update(data => data with { Appearance = appearance });
+        ApplyWindowAppearance(appearance);
+        Editor.ApplyAppearance(appearance);
+    }
+
+    private void ApplyWindowAppearance(NoteAppearance appearance)
+    {
         NoteTheme.For(appearance).ApplyTo(Resources);
         Opacity = appearance.Opacity;
-        Editor.ApplyAppearance(appearance);
     }
 
     private void OnAppearance(object sender, RoutedEventArgs e) => controller.ShowSettings(this);

@@ -23,6 +23,8 @@ public sealed record NoteData
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.UtcNow;
 
+    // 标题栏、标签、托盘用的第一行，由正文算出来，不存（0.8.x 的文件里有这个字段，读的时候忽略）。
+    [System.Text.Json.Serialization.JsonIgnore]
     public string Preview
     {
         get
