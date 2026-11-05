@@ -106,17 +106,16 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
     private static readonly Color[] LegacyText = [C("#303C49"), C("#E4ECF5")];
     private static readonly Color[] LegacyLink = [C("#3D75B5"), C("#83B7F0")];
 
-    internal static bool IsThemeText(Color color) => LegacyText.Contains(color) ||
-        color == For(new NoteAppearance()).Text.Color || color == For(new NoteAppearance { Dark = true }).Text.Color;
-    internal static bool IsThemeLink(Color color) => LegacyLink.Contains(color) ||
-        color == For(new NoteAppearance()).Link.Color || color == For(new NoteAppearance { Dark = true }).Link.Color;
+    internal static bool IsThemeText(Color color) => LegacyText.Contains(color) || EitherTheme(theme => theme.Text.Color == color);
+    internal static bool IsThemeLink(Color color) => LegacyLink.Contains(color) || EitherTheme(theme => theme.Link.Color == color);
 
     // Markdown 和网页粘贴生成的代码底色、引用文字色、表格和分隔线边框也跟随主题：存储里保留原值（代码块靠底色识别），
     // 读取、粘贴和换主题时换成当前主题的颜色（FormattedDocuments.ApplyReadingLayout）。改这三种颜色时把旧值加进对应的判断。
     internal static bool IsThemeCode(Color color) => EitherTheme(theme => theme.Code.Color == color);
     internal static bool IsThemeMuted(Color color) => EitherTheme(theme => theme.Muted.Color == color);
     internal static bool IsThemeBorder(Color color) => EitherTheme(theme => theme.Border.Color == color);
-    private static bool EitherTheme(Func<NoteTheme, bool> test) => test(For(new NoteAppearance())) || test(For(new NoteAppearance { Dark = true }));
+    private static bool EitherTheme(Func<NoteTheme, bool> test) => test(For(DefaultPalette, false)) || test(For(DefaultPalette, true));
+    private static readonly string DefaultPalette = new NoteAppearance().Palette;
 
     // 网页和其他程序粘贴来的近黑、近白、几乎没有彩色的文字色和底色，是原页面的配色，不是有意的颜色：
     // 粘进便签时去掉，改为跟随主题，否则深色便签里会黑字压深底。有颜色的（标红、高亮）照样保留。
@@ -129,11 +128,17 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
 
     private static readonly Dictionary<(string Palette, bool Dark), NoteTheme> Cache = [];
 
-    internal static NoteTheme For(NoteAppearance appearance)
+    // 深浅色是整个程序的模式，只有 NoteController 按设置（或 Windows 的应用模式）写这一项；
+    // 配色、字体、字号、透明度才看每张便签自己的外观。界面线程上读写。
+    internal static bool DarkMode { get; set; }
+
+    internal static NoteTheme For(NoteAppearance appearance) => For(appearance.Palette, DarkMode);
+
+    internal static NoteTheme For(string palette, bool dark)
     {
-        var key = (appearance.Palette, appearance.Dark);
+        var key = (palette, dark);
         if (Cache.TryGetValue(key, out var cached)) return cached;
-        var surface = (appearance.Palette, appearance.Dark) switch
+        var surface = (palette, dark) switch
         {
             ("cream", false) => "#FFF9E7", ("yellow", false) => "#FFF3C9",
             ("green", false) => "#EFF6EB", ("pink", false) => "#FBEFF1", ("neutral", false) => "#FAFAFA",
@@ -141,7 +146,6 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
             ("green", true) => "#283127", ("pink", true) => "#35292E", ("neutral", true) => "#26282B",
             (_, true) => "#242D37", _ => "#EEF4FA"
         };
-        var dark = appearance.Dark;
         var basis = dark
             ? new NoteTheme(B(surface), HeaderAt(surface, dark, 0.085), B("#E4ECF5"), B("#ADBCCA"), B("#465160"), B("#394C63"), B("#1C252E"), B("#83B7F0"))
             : new NoteTheme(B(surface), HeaderAt(surface, dark, 0.07), B("#303C49"), B("#607183"), B("#CFD9E3"), B("#D6E4F1"), B("#E2EAF2"), B("#3D75B5"));

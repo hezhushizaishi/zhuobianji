@@ -75,9 +75,10 @@ internal static partial class Program
         markdown.SetMarkdownPreview(false);
         Check(markdown.Editor.Source.Text == source, "源码与预览切换保留原始文本");
         markdown.SetMarkdownPreview(true);
-        Check(controller.TrySetThemeMode(NoteThemeMode.Dark, out _) && controller.IsDark && controller.Notes.Values.All(w => w.Data.Appearance.Dark) &&
-            markdown.Resources["Surface"] == NoteTheme.For(markdown.Data.Appearance).Surface, "切到深色模式，所有便签一起变深");
-        var dark = new NoteAppearance { Palette = "mist", Dark = true, FontFamily = "Microsoft YaHei UI", FontSize = 19, Opacity = 0.9 };
+        Check(controller.TrySetThemeMode(NoteThemeMode.Dark, out _) && NoteTheme.DarkMode &&
+            controller.Notes.Values.All(w => w.Resources["Surface"] == NoteTheme.For(w.Data.Appearance.Palette, true).Surface), "切到深色模式，所有便签一起变深");
+        // 程序现在是深色模式，这里只改配色以外的外观。
+        var dark = new NoteAppearance { Palette = "mist", FontFamily = "Microsoft YaHei UI", FontSize = 19, Opacity = 0.9 };
         rich.ApplyAppearance(dark); rich.MarkDirty();
         Check(rich.Editor.TextContent == richText && Elements(rich.Editor.Rich.Document).OfType<Hyperlink>().Any() && controller.SaveDefaults(dark),
             "改外观不改文字或链接，并保存新便签默认外观");
@@ -112,7 +113,7 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "editing", "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        Check(controller.Notes.Count == expected.Length && controller.Preferences.Appearance.Dark && controller.ThemeMode == NoteThemeMode.Dark && controller.IsDark,
+        Check(controller.Notes.Count == expected.Length && controller.Preferences.Appearance.FontSize == 19 && controller.ThemeMode == NoteThemeMode.Dark && NoteTheme.DarkMode,
             "独立进程恢复便签数量、默认外观和深色模式");
         foreach (var data in expected)
         {

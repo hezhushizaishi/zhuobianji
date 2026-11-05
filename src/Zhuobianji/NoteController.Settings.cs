@@ -18,11 +18,8 @@ internal sealed partial class NoteController
     }
 
     // 深浅色是整个程序的模式：所有便签、左侧标签、弹窗和托盘菜单一起变，配色仍是每张便签自己选。
-    // 每张便签外观里的 Dark 统一由这里写入；「跟随系统」读 Windows 的应用深浅色设置，系统切换时跟着变。
+    // 现在是深是浅只记在 NoteTheme.DarkMode，由这里写入；「跟随系统」读 Windows 的应用深浅色设置，系统切换时跟着变。
     internal NoteThemeMode ThemeMode => Preferences.ThemeMode ?? NoteThemeMode.Light;
-    internal bool IsDark { get; private set; }
-
-    internal NoteAppearance Themed(NoteAppearance appearance) => appearance.Dark == IsDark ? appearance : appearance with { Dark = IsDark };
 
     internal bool TrySetThemeMode(NoteThemeMode mode, out string? error)
     {
@@ -34,10 +31,10 @@ internal sealed partial class NoteController
     private void ApplyThemeMode()
     {
         var dark = ResolveDark();
-        if (dark == IsDark) return;
-        IsDark = dark;
-        // 只换显示，不标记修改：深浅色不算改了便签，下次保存时顺带写进去，启动时也会按模式重新写入。
-        foreach (var window in Notes.Values) window.ApplyAppearance(Themed(window.Data.Appearance));
+        if (dark == NoteTheme.DarkMode) return;
+        NoteTheme.DarkMode = dark;
+        // 只换显示，不标记修改：深浅色不存在便签里，换模式不算改了便签。
+        foreach (var window in Notes.Values) window.ApplyAppearance(window.Data.Appearance);
         RefreshCollections();
         settings?.ApplyThemeMode();
     }

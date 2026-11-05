@@ -38,7 +38,7 @@ internal sealed class TrayMenu : IDisposable
 
     internal void Rebuild()
     {
-        NoteTheme.For(controller.Themed(controller.Preferences.Appearance)).ApplyTo(menu.Resources);
+        NoteTheme.For(controller.Preferences.Appearance).ApplyTo(menu.Resources);
         menu.Items.Clear();
         Add(menu.Items, "新建便签", SymbolRegular.Add20, () => controller.CreateNote());
         Add(menu.Items, "新建 Markdown 便签", SymbolRegular.Markdown20, () => controller.CreateNote(format: NoteFormat.Markdown));

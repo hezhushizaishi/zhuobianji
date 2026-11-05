@@ -133,14 +133,14 @@ internal static partial class Program
             rich.Editor.Rich.Document = FormattedDocuments.FromHtml(
                 "<h2>细节</h2><p>选中文字，再点下面的图标。</p><ul><li><b>粗体</b>、<i>斜体</i>、<u>下划线</u></li><li><span style='color:#C95555'>换个颜色</span></li></ul>", rich.Data.Appearance);
             rich.FormatButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-            var dark = controller.CreateNote(format: NoteFormat.Markdown);
-            dark.Width = 360 + 2 * NoteWindow.ShadowMargin;
-            dark.Height = 330 + 2 * NoteWindow.ShadowMargin;
-            dark.ApplyAppearance(new NoteAppearance { Palette = "mist", Dark = true });
-            dark.Editor.TextContent = "# 深色便签\n\n晚上写字不刺眼。\n\n- 顶栏和底栏都是图标\n- 悬停才变实";
-            dark.SetMarkdownPreview(true);
+            var markdownNote = controller.CreateNote(format: NoteFormat.Markdown);
+            markdownNote.Width = 360 + 2 * NoteWindow.ShadowMargin;
+            markdownNote.Height = 330 + 2 * NoteWindow.ShadowMargin;
+            markdownNote.ApplyAppearance(new NoteAppearance { Palette = "mist" });
+            markdownNote.Editor.TextContent = "# Markdown 便签\n\n写完切到预览。\n\n- 顶栏和底栏都是图标\n- 悬停才变实";
+            markdownNote.SetMarkdownPreview(true);
             await PreviewReady(controller);
-            PreviewScene("details.png", 820, 394, (rich, 32, 32), (dark, 428, 32));
+            PreviewScene("details.png", 820, 394, (rich, 32, 32), (markdownNote, 428, 32));
 
             rich.Editor.Rich.Selection.Select(rich.Editor.Rich.Document.ContentStart, rich.Editor.Rich.Document.ContentStart);
             rich.ColorButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
@@ -173,8 +173,8 @@ internal static partial class Program
                 confirm: true, danger: true, width: 400) { Owner = rich });
             // 深浅色是整个程序的模式：切到深色拍深色的设置和链接窗口，再切回来。
             controller.TrySetThemeMode(NoteThemeMode.Dark, out _);
-            await PreviewDialog("settings-dark.png", controller.ShowSettings(dark));
-            await PreviewDialog("link-dialog.png", new LinkWindow(dark.Data.Appearance, "https://example.com/docs/start") { Owner = dark });
+            await PreviewDialog("settings-dark.png", controller.ShowSettings(markdownNote));
+            await PreviewDialog("link-dialog.png", new LinkWindow(markdownNote.Data.Appearance, "https://example.com/docs/start") { Owner = markdownNote });
             controller.TrySetThemeMode(NoteThemeMode.Light, out _);
 
             var backdrop = new Window { Left = rich.Left - 40, Top = rich.Top - 40, Width = rich.Width + 80, Height = rich.Height + 80,

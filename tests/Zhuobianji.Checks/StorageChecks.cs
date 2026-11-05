@@ -49,6 +49,11 @@ internal static partial class Program
         }
         using var reopened = new NoteStore(directory);
         Check(reopened.LoadAll().Notes.Count == 1, "释放实例后可重新打开数据目录");
+        // 0.8.x 每张便签的外观里存着 Dark：照常读进来（只用来定下程序的深浅色模式），清掉以后不再写出。
+        var legacyAppearance = JsonSerializer.Deserialize<NoteAppearance>(
+            "{\"Palette\":\"green\",\"Dark\":true,\"FontFamily\":\"Microsoft YaHei UI\",\"FontSize\":17,\"Opacity\":1}")!;
+        Check(legacyAppearance.LegacyDark == true && legacyAppearance.Palette == "green" &&
+            !JsonSerializer.Serialize(legacyAppearance with { LegacyDark = null }).Contains("Dark"), "0.8.x 外观里的深浅色照常读入，清掉后不再写出");
         Console.WriteLine($"PASS storage：{passed} 项检查");
     }
 }

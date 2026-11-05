@@ -35,16 +35,21 @@ internal sealed partial class NoteController : IDisposable
     {
         var loaded = store.LoadAll();
         var readErrors = loaded.Errors.ToList();
-        try { Preferences = store.LoadPreferences(); }
+        var preferencesRead = false;
+        try { Preferences = store.LoadPreferences(); preferencesRead = true; }
         catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidDataException or IOException or UnauthorizedAccessException)
         { readErrors.Add("默认外观读取失败，暂用初始外观：" + ex.Message); }
-        // 0.8.x 的设置里没有深浅色模式：先按主便签（没有就按默认外观）的深浅来，在设置里选过以后才存下来。
+        // 0.8.x 的设置里没有深浅色模式，而是每张便签各存一份 Dark：按主便签（没有就按默认外观）定下模式，马上存进设置。
+        // 便签和默认外观里的旧 Dark 读完就清掉，下次保存时不再写出。设置文件读坏了不覆盖它；没存上就先这样用着，下次启动再定一次。
         if (Preferences.ThemeMode is null)
         {
             var main = loaded.Notes.FirstOrDefault(data => data.IsCollectionMain);
-            Preferences = Preferences with { ThemeMode = (main?.Appearance ?? Preferences.Appearance).Dark ? NoteThemeMode.Dark : NoteThemeMode.Light };
+            var dark = (main?.Appearance ?? Preferences.Appearance).LegacyDark == true;
+            var migrated = Preferences with { ThemeMode = dark ? NoteThemeMode.Dark : NoteThemeMode.Light, Appearance = Preferences.Appearance with { LegacyDark = null } };
+            if (!preferencesRead || !TrySavePreferences(migrated, "深浅色设置未保存", out _)) Preferences = migrated;
         }
-        IsDark = ResolveDark();
+        Preferences = Preferences with { Appearance = Preferences.Appearance with { LegacyDark = null } };
+        NoteTheme.DarkMode = ResolveDark();
         Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnSystemPreferenceChanged;
         var modeErrors = new List<string>();
         tray = new TrayMenu(this);
@@ -56,7 +61,7 @@ internal sealed partial class NoteController : IDisposable
         }
         foreach (var data in loaded.Notes)
         {
-            try { AddWindow(data); }
+            try { AddWindow(data with { Appearance = data.Appearance with { LegacyDark = null } }); }
             catch (InvalidDataException ex) { readErrors.Add($"{data.Id:N}：{ex.Message}"); continue; }
 
         }
@@ -96,7 +101,7 @@ internal sealed partial class NoteController : IDisposable
 
     private NoteWindow AddWindow(NoteData data)
     {
-        var window = new NoteWindow(data with { Appearance = Themed(data.Appearance) }, this);
+        var window = new NoteWindow(data, this);
         Notes.Add(data.Id, window);
         return window;
     }
@@ -110,7 +115,7 @@ internal sealed partial class NoteController : IDisposable
         {
             Left = previousBounds is null ? workArea.Right - 470 - offset : previousBounds.Left + 24,
             Top = previousBounds is null ? workArea.Top + 90 + offset : previousBounds.Top + 24,
-            Width = 420, Height = 440, Format = format ?? Preferences.DefaultFormat, Appearance = Themed(Preferences.Appearance), CollectedBy = collectedBy,
+            Width = 420, Height = 440, Format = format ?? Preferences.DefaultFormat, Appearance = Preferences.Appearance, CollectedBy = collectedBy,
             IsOnDesktop = previous?.Data.IsOnDesktop ?? (Notes.Count > 0 && Notes.Values.All(w => w.Data.IsOnDesktop))
         };
         var window = AddWindow(data);

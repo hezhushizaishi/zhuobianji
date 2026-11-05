@@ -20,7 +20,7 @@ internal partial class SettingsWindow : NoteDialog
     private readonly Dictionary<TextBox, HotkeyBinding> hotkeys = [];
     internal NoteWindow? TargetNote { get; }
 
-    internal SettingsWindow(NoteController controller, NoteWindow? note) : base(note?.Data.Appearance ?? controller.Themed(controller.Preferences.Appearance))
+    internal SettingsWindow(NoteController controller, NoteWindow? note) : base(note?.Data.Appearance ?? controller.Preferences.Appearance)
     {
         InitializeComponent();
         this.controller = controller;
@@ -96,8 +96,7 @@ internal partial class SettingsWindow : NoteDialog
     private void OnAppearanceChanged(object sender, RoutedEventArgs e)
     {
         if (initializing || TargetNote is null || PaletteItems.FirstOrDefault(item => item.IsChecked == true) is not { } palette) return;
-        var appearance = new NoteAppearance { Palette = (string)palette.Tag, Dark = controller.IsDark,
-            FontFamily = font, FontSize = SizeSlider.Value, Opacity = OpacitySlider.Value / 100 };
+        var appearance = new NoteAppearance { Palette = (string)palette.Tag, FontFamily = font, FontSize = SizeSlider.Value, Opacity = OpacitySlider.Value / 100 };
         TargetNote.ApplyAppearance(appearance);
         TargetNote.MarkDirty();
         SetAppearance(appearance);
@@ -124,7 +123,7 @@ internal partial class SettingsWindow : NoteDialog
     }
 
     // 程序换了深浅色（在这里选的，或跟随系统变了）：设置窗口跟着所属便签换色。
-    internal void ApplyThemeMode() => SetAppearance(TargetNote?.Data.Appearance ?? controller.Themed(controller.Preferences.Appearance));
+    internal void ApplyThemeMode() => SetAppearance(TargetNote?.Data.Appearance ?? controller.Preferences.Appearance);
 
     private void OnSaveDefaults(object sender, RoutedEventArgs e)
     {

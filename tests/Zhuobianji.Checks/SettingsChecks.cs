@@ -31,6 +31,26 @@ internal static partial class Program
             startup.SetEnabled(false);
             using (var key = Registry.CurrentUser.OpenSubKey(registryPath))
                 Check((string?)key?.GetValue("WeNote") == "其他程序路径", "关闭只移除当前程序的启动项");
+            // 0.8.x 的数据：设置里没有深浅色模式，每张便签各存一份 Dark。第一次启动按主便签定下模式、马上存进设置，之后不再写 Dark。
+            using (var legacyStore = new NoteStore(Path.Combine(root, "settings-legacy", "Data")))
+            {
+                var legacyMain = new NoteData { Text = "0.8.x 的深色主便签", IsCollectionMain = true,
+                    Appearance = new NoteAppearance { Palette = "green", LegacyDark = true } };
+                legacyStore.Save(legacyMain);
+                legacyStore.SavePreferences(new NotePreferences { Appearance = new NoteAppearance { LegacyDark = false } });
+                var settingsPath = Path.Combine(legacyStore.DirectoryPath, "settings.json");
+                Check(File.ReadAllText(legacyStore.GetPath(legacyMain.Id)).Contains("\"Dark\": true") && File.ReadAllText(settingsPath).Contains("\"Dark\":") &&
+                    legacyStore.LoadPreferences().ThemeMode is null, "准备好 0.8.x 形状的数据");
+                using var legacyController = new NoteController(legacyStore, () => { }, enableHotkeys: false);
+                legacyController.Start();
+                var legacyNote = legacyController.Notes[legacyMain.Id];
+                Check(legacyController.ThemeMode == NoteThemeMode.Dark && NoteTheme.DarkMode && legacyStore.LoadPreferences().ThemeMode == NoteThemeMode.Dark &&
+                    legacyNote.Resources["Surface"] == NoteTheme.For("green", true).Surface,
+                    "0.8.x 数据第一次启动按主便签定下深色模式，并马上存进设置");
+                legacyNote.MarkDirty();
+                Check(legacyNote.SaveNow() && !File.ReadAllText(legacyStore.GetPath(legacyMain.Id)).Contains("\"Dark\":") &&
+                    !File.ReadAllText(settingsPath).Contains("\"Dark\":"), "迁移以后便签和设置不再写深浅色");
+            }
             using var store = new NoteStore(Path.Combine(root, "settings", "Data"));
             using var controller = new NoteController(store, () => { }, startup, enableHotkeys: false);
             controller.Start();
@@ -48,13 +68,15 @@ internal static partial class Program
             settings.SizeSlider.Value = 20;
             settings.OpacitySlider.Value = 85;
             settings.DarkMode.IsChecked = true;
-            Check(note.Data.Appearance.Palette == "yellow" && note.Data.Appearance.FontSize == 20 && note.Data.Appearance.Opacity == 0.85 && note.Data.Appearance.Dark &&
+            Check(note.Data.Appearance.Palette == "yellow" && note.Data.Appearance.FontSize == 20 && note.Data.Appearance.Opacity == 0.85 && NoteTheme.DarkMode &&
+                note.Resources["Surface"] == NoteTheme.For("yellow", true).Surface &&
                 note.Editor.TextContent == "设置调整前的文字与格式", "设置控件即时应用配色、字号、透明度和深色，不改便签文字");
-            Check(controller.ThemeMode == NoteThemeMode.Dark && store.LoadPreferences().ThemeMode == NoteThemeMode.Dark && controller.Themed(controller.Preferences.Appearance).Dark,
+            Check(controller.ThemeMode == NoteThemeMode.Dark && store.LoadPreferences().ThemeMode == NoteThemeMode.Dark &&
+                NoteTheme.For(controller.Preferences.Appearance) == NoteTheme.For(controller.Preferences.Appearance.Palette, true),
                 "深浅色是整个程序的模式，存进设置，之后新建的便签也是深色");
             settings.SystemMode.IsChecked = true;
             using (var personalize = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
-                Check(controller.ThemeMode == NoteThemeMode.System && note.Data.Appearance.Dark == (personalize?.GetValue("AppsUseLightTheme") is int light && light == 0),
+                Check(controller.ThemeMode == NoteThemeMode.System && NoteTheme.DarkMode == (personalize?.GetValue("AppsUseLightTheme") is int light && light == 0),
                     "「跟随系统」按 Windows 的应用深浅色设置");
             settings.DarkMode.IsChecked = true;
             var font = settings.FontMenu.Items.OfType<System.Windows.Controls.MenuItem>().Single(item => (string)item.Tag == NoteTheme.BundledFont);

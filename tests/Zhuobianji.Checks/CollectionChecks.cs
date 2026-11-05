@@ -96,13 +96,13 @@ internal static partial class Program
         Check(!markdown.IsVisible && rich.IsVisible && markdown.Data.CollectedBy == main.Data.Id,
             "子便签顶部 × 只收起自己");
         // 深浅色是整个程序的模式：切到深色时，收着的标签、展开的子便签和主便签一起变深，配色各自保留。
-        Check(controller.TrySetThemeMode(NoteThemeMode.Dark, out _) &&
-            new[] { rich, markdown, plain }.All(child => child.Data.Appearance.Dark &&
-                main.CollectionTabButtons[child.Data.Id].Resources["HeaderFill"] == NoteTheme.For(child.Data.Appearance).HeaderFill) &&
-            main.Resources["Surface"] == NoteTheme.For(main.Data.Appearance).Surface && main.Data.Appearance.Dark,
+        Check(controller.TrySetThemeMode(NoteThemeMode.Dark, out _) && NoteTheme.DarkMode &&
+            new[] { rich, markdown, plain }.All(child =>
+                main.CollectionTabButtons[child.Data.Id].Resources["HeaderFill"] == NoteTheme.For(child.Data.Appearance.Palette, true).HeaderFill) &&
+            main.Resources["Surface"] == NoteTheme.For(main.Data.Appearance.Palette, true).Surface,
             "切到深色模式，左侧标签和子便签跟着主便签一起变深");
-        Check(controller.TrySetThemeMode(NoteThemeMode.Light, out _) &&
-            main.CollectionTabButtons[markdown.Data.Id].Resources["HeaderFill"] == NoteTheme.For(markdown.Data.Appearance).HeaderFill && !markdown.Data.Appearance.Dark,
+        Check(controller.TrySetThemeMode(NoteThemeMode.Light, out _) && !NoteTheme.DarkMode &&
+            main.CollectionTabButtons[markdown.Data.Id].Resources["HeaderFill"] == NoteTheme.For(markdown.Data.Appearance.Palette, false).HeaderFill,
             "切回浅色，标签一起变回来");
         var originalTab = main.CollectionTabButtons[rich.Data.Id];
         main.Left += 5;

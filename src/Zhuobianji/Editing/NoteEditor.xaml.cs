@@ -22,6 +22,7 @@ internal partial class NoteEditor : UserControl
     internal NoteFormat Format { get; private set; }
     internal bool IsPreview { get; private set; }
     internal NoteAppearance Appearance { get; private set; } = new();
+    private NoteTheme? shownTheme;
     public RichTextBox RichEditor => Rich;
     internal Action<Uri> LinkOpener { get; set; } = NoteLinks.Open;
     internal event Action? ContentChanged;
@@ -184,8 +185,10 @@ internal partial class NoteEditor : UserControl
         var wasLoading = loading;
         loading = true;
         var before = Appearance;
-        var oldTheme = NoteTheme.For(before);
+        // 换深浅色时外观不变、主题变了，所以旧颜色按上次显示用的主题找。
+        var oldTheme = shownTheme ?? NoteTheme.For(before);
         var theme = NoteTheme.For(value);
+        shownTheme = theme;
         foreach (var element in DocumentText.Elements(Rich.Document))
         {
             if (element.ReadLocalValue(TextElement.ForegroundProperty) is SolidColorBrush brush && brush.Color == oldTheme.Text.Color)

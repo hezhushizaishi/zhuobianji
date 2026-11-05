@@ -76,60 +76,73 @@ internal static partial class Program
             "重开后正文、链接及新的行距恢复");
 
         // 0.8.x 存下的富文本：根 Section 写着浅色主题的字体、字号、行高和正文色，链接带浅色链接色。
-        var dark = appearance with { Dark = true };
+        // 深浅色是整个程序的模式（NoteTheme.DarkMode），下面直接切模式，测完切回浅色。
+        var light = NoteTheme.For(appearance.Palette, false);
+        var dark = NoteTheme.For(appearance.Palette, true);
         var red = Color.FromRgb(0xC9, 0x55, 0x55);
         var legacyXaml = "<Section xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xml:space=\"preserve\" " +
             "LineHeight=\"24.65\" FontFamily=\"Microsoft YaHei UI\" FontSize=\"17\" Foreground=\"#FF303C49\"><Paragraph><Run>旧正文</Run>" +
             "<Run Foreground=\"#FFC95555\">红字</Run><Hyperlink NavigateUri=\"https://example.com/\" Foreground=\"#FF3D75B5\"><Run>链接</Run></Hyperlink></Paragraph></Section>";
+        NoteTheme.DarkMode = true;
         var legacy = new NoteEditor();
-        legacy.Initialize(new NoteData { Format = NoteFormat.RichText, Text = "旧正文红字链接", RichText = legacyXaml, Appearance = dark });
+        legacy.Initialize(new NoteData { Format = NoteFormat.RichText, Text = "旧正文红字链接", RichText = legacyXaml, Appearance = appearance });
         Color Shown(TextElement element) => ((SolidColorBrush)element.Foreground).Color;
         var legacyRuns = Elements(legacy.Rich.Document).OfType<Run>().ToArray();
-        Check(Shown(legacyRuns[0]) == NoteTheme.For(dark).Text.Color && Shown(legacyRuns[1]) == red &&
-            Shown(Elements(legacy.Rich.Document).OfType<Hyperlink>().Single()) == NoteTheme.For(dark).Link.Color,
-            "旧数据写死的浅色主题色在深色便签里跟随主题，自选颜色保留");
+        Check(Shown(legacyRuns[0]) == dark.Text.Color && Shown(legacyRuns[1]) == red &&
+            Shown(Elements(legacy.Rich.Document).OfType<Hyperlink>().Single()) == dark.Link.Color,
+            "旧数据写死的浅色主题色在深色模式里跟随主题，自选颜色保留");
+        NoteTheme.DarkMode = false;
         legacy.ApplyAppearance(appearance);
+        Check(Shown(Elements(legacy.Rich.Document).OfType<Run>().First()) == light.Text.Color &&
+            Shown(Elements(legacy.Rich.Document).OfType<Hyperlink>().Single()) == light.Link.Color,
+            "切回浅色模式，打开着的便签里正文和链接一起换回浅色");
         var stored = legacy.Snapshot(new NoteData()).RichText!;
         Check(new[] { "303C49", "E4ECF5", "3D75B5", "83B7F0", "FontFamily=", "FontSize=" }.All(value => !stored.Contains(value)) &&
             stored.Contains("C95555"), "富文本存储不写主题色和便签字体字号，自选颜色照存");
+        NoteTheme.DarkMode = true;
         var reloaded = new NoteEditor();
-        reloaded.Initialize(new NoteData { Format = NoteFormat.RichText, Text = legacy.TextContent, RichText = stored, Appearance = dark });
-        Check(reloaded.TextContent == legacy.TextContent && Shown(Elements(reloaded.Rich.Document).OfType<Run>().First()) == NoteTheme.For(dark).Text.Color &&
-            Shown(Elements(reloaded.Rich.Document).OfType<Hyperlink>().Single()) == NoteTheme.For(dark).Link.Color,
+        reloaded.Initialize(new NoteData { Format = NoteFormat.RichText, Text = legacy.TextContent, RichText = stored, Appearance = appearance });
+        Check(reloaded.TextContent == legacy.TextContent && Shown(Elements(reloaded.Rich.Document).OfType<Run>().First()) == dark.Text.Color &&
+            Shown(Elements(reloaded.Rich.Document).OfType<Hyperlink>().Single()) == dark.Link.Color,
             "不带主题值的富文本重开后按当前主题显示正文和链接");
-        var fromDark = new FlowDocument(new Paragraph(new Run("深色便签里复制的字") { Foreground = NoteTheme.For(dark).Text }))
+        NoteTheme.DarkMode = false;
+        var fromDark = new FlowDocument(new Paragraph(new Run("深色模式里复制的字") { Foreground = dark.Text }))
             { FontFamily = new FontFamily(appearance.FontFamily), FontSize = appearance.FontSize };
         var pastedAcross = LoadPaste(restored.PreparePaste(new DataObject(DataFormats.Rtf, FormattedDocuments.Save(fromDark, DataFormats.Rtf))));
-        Check(FormattedDocuments.PlainText(pastedAcross) == "深色便签里复制的字" &&
-            Elements(pastedAcross).OfType<Run>().All(run => Shown(run) == NoteTheme.For(appearance).Text.Color),
-            "深色便签的文字粘到浅色便签，改用浅色主题的正文色");
+        Check(FormattedDocuments.PlainText(pastedAcross) == "深色模式里复制的字" &&
+            Elements(pastedAcross).OfType<Run>().All(run => Shown(run) == light.Text.Color),
+            "深色模式下复制的文字在浅色模式里粘贴，改用浅色主题的正文色");
 
-        // Markdown 转成的代码块、引用和表格：底色、引用文字色和边框跟随深浅色，存储后换个主题重开也跟随。
+        // Markdown 转成的代码块、引用和表格：底色、引用文字色和边框跟随深浅色，存储后换个模式重开也跟随。
         var blocks = new NoteEditor();
         blocks.Initialize(new NoteData { Format = NoteFormat.Markdown, Text = "> 引用\n\n```\ncode\n```\n\n| a | b |\n| - | - |\n| 1 | 2 |", Appearance = appearance });
         blocks.ChangeFormat(NoteFormat.RichText);
-        blocks.ApplyAppearance(dark);
+        NoteTheme.DarkMode = true;
+        blocks.ApplyAppearance(appearance);
         bool Follows(FlowDocument document, NoteTheme theme) =>
             Elements(document).OfType<Paragraph>().Any(paragraph => paragraph.Background is SolidColorBrush code && code.Color == theme.Code.Color) &&
             Elements(document).OfType<Section>().Any(quote => Shown(quote) == theme.Muted.Color && ((SolidColorBrush)quote.BorderBrush).Color == theme.Border.Color) &&
             Elements(document).OfType<TableCell>().Any() &&
             Elements(document).OfType<TableCell>().All(cell => ((SolidColorBrush)cell.BorderBrush).Color == theme.Border.Color);
-        Check(Follows(blocks.Rich.Document, NoteTheme.For(dark)), "Markdown 转成的代码块、引用和表格换成深色后跟着变");
+        Check(Follows(blocks.Rich.Document, dark), "Markdown 转成的代码块、引用和表格换成深色后跟着变");
+        var blocksStored = blocks.Snapshot(new NoteData()).RichText;
+        NoteTheme.DarkMode = false;
         var blocksReloaded = new NoteEditor();
-        blocksReloaded.Initialize(new NoteData { Format = NoteFormat.RichText, Text = blocks.TextContent,
-            RichText = blocks.Snapshot(new NoteData()).RichText, Appearance = appearance });
-        Check(Follows(blocksReloaded.Rich.Document, NoteTheme.For(appearance)) && DocumentText.Markdown(blocksReloaded.Rich.Document).Contains("```"),
-            "深色下存的代码块、引用和表格在浅色便签重开后按浅色显示，代码块仍认得出");
+        blocksReloaded.Initialize(new NoteData { Format = NoteFormat.RichText, Text = blocks.TextContent, RichText = blocksStored, Appearance = appearance });
+        Check(Follows(blocksReloaded.Rich.Document, light) && DocumentText.Markdown(blocksReloaded.Rich.Document).Contains("```"),
+            "深色下存的代码块、引用和表格在浅色模式重开后按浅色显示，代码块仍认得出");
 
-        // 网页的黑字白底粘到深色便签：去掉原页面的配色，跟随主题；有颜色的字保留。
+        // 网页的黑字白底粘到深色模式的便签：去掉原页面的配色，跟随主题；有颜色的字保留。
+        NoteTheme.DarkMode = true;
         var darkPaste = new NoteEditor();
-        darkPaste.Initialize(new NoteData { Format = NoteFormat.RichText, Text = "", Appearance = dark });
+        darkPaste.Initialize(new NoteData { Format = NoteFormat.RichText, Text = "", Appearance = appearance });
         var webColors = LoadPaste(darkPaste.PreparePaste(new DataObject(DataFormats.Html,
             "<p><span style='color: rgb(31, 35, 40); background-color: rgb(255, 255, 255)'>网页黑字</span><span style='color: #C95555'>红字</span></p>")));
         var webRuns = Elements(webColors).OfType<Run>().Where(run => run.Text.Length > 0).ToArray();
-        Check(webRuns.Length == 2 && Shown(webRuns[0]) == NoteTheme.For(dark).Text.Color && Shown(webRuns[1]) == red &&
+        NoteTheme.DarkMode = false;
+        Check(webRuns.Length == 2 && Shown(webRuns[0]) == dark.Text.Color && Shown(webRuns[1]) == red &&
             Elements(webColors).All(element => element.Background is null),
-            "网页的黑字白底粘到深色便签改为跟随主题，标红的字保留");
+            "网页的黑字白底粘到深色模式的便签改为跟随主题，标红的字保留");
 
         // 便签字体本身是 Consolas 时，只有显式设成等宽字体的部分才算代码。
         var mono = new NoteEditor();
