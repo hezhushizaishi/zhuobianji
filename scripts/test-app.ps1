@@ -1,6 +1,8 @@
 ﻿param([string[]] $Group = @())
 # 按功能组运行检查。组名由检查程序自己列出（--list）；有 "<组>-reload" 阶段的组会再开一个进程验证重开结果。
+# quick 是不开窗口的三组（storage、state、documents）：不弹窗、不抢前台，几秒跑完，改动中间可以随时跑。
 $ErrorActionPreference = 'Stop'
+$quick = @('storage', 'state', 'documents')
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $projectPath = Join-Path $projectRoot 'tests\Zhuobianji.Checks\Zhuobianji.Checks.csproj'
 $checksDll = Join-Path $projectRoot 'tests\Zhuobianji.Checks\bin\Release\net10.0-windows\Zhuobianji.Checks.dll'
@@ -11,10 +13,12 @@ $phases = @(dotnet $checksDll --list)
 $groups = @($phases | Where-Object { -not $_.EndsWith('-reload') })
 if ($Group.Count -eq 0) {
     Write-Output ('可用功能组：' + ($groups -join ', '))
+    Write-Output ('不开窗口的组：' + ($quick -join ', ') + '（-Group quick 一起跑）')
     Write-Output '示例：.\scripts\test-app.ps1 -Group storage,close；全部运行：-Group all'
     return
 }
-$selected = @(if ($Group -contains 'all') { $groups } else { $Group | Select-Object -Unique })
+$selected = @(if ($Group -contains 'all') { $groups } else {
+    $Group | ForEach-Object { if ($_ -eq 'quick') { $quick } else { $_ } } | Select-Object -Unique })
 foreach ($name in $selected) {
     if ($groups -notcontains $name) { throw ('未知功能组：' + $name) }
 }
