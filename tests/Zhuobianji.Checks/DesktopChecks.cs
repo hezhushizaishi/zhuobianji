@@ -68,10 +68,12 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "desktop", "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        Check(controller.Windows.Count == 2 && controller.Windows.Values.All(w => w.IsDesktopAttached && NativeChild(w)), "新进程自动恢复每张便签的桌面模式");
+        Check(controller.Book.Notes.Count == 2 && controller.Windows.Count == expected.Count(data => !data.IsHidden) &&
+            controller.Windows.Values.All(w => w.IsDesktopAttached && NativeChild(w)), "新进程自动恢复显示着的便签的桌面模式，隐藏的不建窗口");
         foreach (var data in expected)
         {
-            var window = controller.Windows[data.Id];
+            var window = WindowOf(controller, data.Id);
+            Check(window.IsDesktopAttached && NativeChild(window), "每张便签都挂在桌面，隐藏的在建窗口时挂回");
             Check(window.Editor.TextContent == data.Text && SameBounds(data, window.Snapshot()) && window.Data.IsPinned == data.IsPinned,
                 "桌面模式重开后文本、位置尺寸及置顶偏好一致");
             Check(window.Editor.Format == data.Format && window.Editor.IsPreview == data.PreviewMarkdown, "桌面模式恢复编辑格式和 Markdown 预览状态");

@@ -42,14 +42,45 @@ internal sealed partial class NoteController : IDisposable
 
     internal NoteWindow? WindowOf(NoteEntry? note) => note is not null && Windows.TryGetValue(note.Id, out var window) ? window : null;
     internal bool IsShown(NoteEntry note) => WindowOf(note)?.IsVisible == true;
-    private NoteWindow WindowFor(NoteEntry note) => Windows[note.Id];
+
+    // 启动时先攒着，读完再一起提示；平时直接提示。
+    private List<string>? startupReadErrors, startupModeErrors;
+    private const string ReadErrorNotice = "部分数据无法读取，原文件已保留，其他便签可以继续使用。";
+    private const string ModeErrorNotice = "当前无法贴到桌面，便签先以浮窗显示。稍后可从更多操作重试。";
+
+    // 便签的窗口：隐藏、收纳的便签启动时不建，第一次要用时才建（建好先隐藏着），之后一直留着。
+    // 记着贴桌面的根便签建好就挂到桌面。正文读不了时提示，并把这张从内存里拿掉（原文件保留），返回 null。
+    internal NoteWindow? WindowFor(NoteEntry note)
+    {
+        if (WindowOf(note) is { } existing) return existing;
+        NoteWindow window;
+        try { window = new NoteWindow(note, this); }
+        catch (InvalidDataException ex)
+        {
+            book.Forget(note);
+            book.ReleaseOrphans();
+            RefreshCollections();
+            if (startupReadErrors is not null) startupReadErrors.Add($"{note.Id:N}：{ex.Message}");
+            else Dialogs.Show(ReadErrorNotice + "\n\n" + ex.Message, "数据提示");
+            return null;
+        }
+        note.View = window;
+        Windows.Add(note.Id, window);
+        window.RefreshCollectionState();
+        if (note.Data.CollectedBy is null && note.Data.IsOnDesktop && !window.TrySetDesktopMode(true, out var error))
+        {
+            if (startupModeErrors is not null) startupModeErrors.Add(error!);
+            else Dialogs.Show(ModeErrorNotice + "\n\n" + error, "桌面模式");
+        }
+        return window;
+    }
 
     internal void Start()
     {
-        var readErrors = book.Load();
+        startupReadErrors = book.Load();
+        startupModeErrors = [];
         NoteTheme.DarkMode = ResolveDark();
         Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnSystemPreferenceChanged;
-        var modeErrors = new List<string>();
         tray = new TrayMenu(this);
         if (enableHotkeys)
         {
@@ -57,19 +88,11 @@ internal sealed partial class NoteController : IDisposable
             if (!hotkeys.TryApply(Preferences.Hotkeys, out var error))
                 Dialogs.Show(error + "\n请到设置的快捷键页面更换。", "快捷键");
         }
-        foreach (var note in book.Notes.ToArray())
-        {
-            try { AddWindow(note); }
-            catch (InvalidDataException ex) { readErrors.Add($"{note.Id:N}：{ex.Message}"); book.Forget(note); }
-        }
-        // 先恢复关系，再显示窗口，避免已收纳的便签在启动时闪现。
+        // 先恢复收纳关系，再给要显示的根便签建窗口，避免已收纳的便签在启动时闪现。隐藏和收纳的便签不建窗口。
+        // 读不了的便签会被拿掉，它是主便签时收着的便签放回桌面，所以每次重新找还没显示的。
         book.ReleaseOrphans();
-        foreach (var note in book.Roots.ToArray())
-        {
-            var window = WindowFor(note);
-            if (note.Data.IsOnDesktop && !window.TrySetDesktopMode(true, out var error)) modeErrors.Add(error!);
-            if (!note.Data.IsHidden) window.Reveal(activate: false);
-        }
+        while (book.Roots.FirstOrDefault(note => !note.Data.IsHidden && WindowOf(note) is null) is { } next)
+            WindowFor(next)?.Reveal(activate: false);
         RefreshCollections();
         if (book.Notes.Count == 0) CreateNote();
         else
@@ -79,23 +102,16 @@ internal sealed partial class NoteController : IDisposable
             else
             {
                 // 普通浮窗在启动时明确前置；桌面便签仍留在桌面层。
-                var front = visible.Where(note => !WindowFor(note).IsDesktopAttached).MaxBy(note => note.Data.UpdatedAt)
+                var front = visible.Where(note => WindowOf(note)?.IsDesktopAttached == false).MaxBy(note => note.Data.UpdatedAt)
                     ?? visible.MaxBy(note => note.Data.UpdatedAt)!;
-                WindowFor(front).Reveal(activate: true);
+                WindowOf(front)?.Reveal(activate: true);
             }
         }
-        if (readErrors.Count > 0)
-            Dialogs.Show("部分数据无法读取，原文件已保留，其他便签可以继续使用。\n\n" + string.Join("\n", readErrors), "数据提示");
-        if (modeErrors.Count > 0)
-            Dialogs.Show("当前无法贴到桌面，便签先以浮窗显示。稍后可从更多操作重试。\n\n" + string.Join("\n", modeErrors.Distinct()), "桌面模式");
-    }
-
-    private NoteWindow AddWindow(NoteEntry note)
-    {
-        var window = new NoteWindow(note, this);
-        note.View = window;
-        Windows.Add(note.Id, window);
-        return window;
+        var readErrors = startupReadErrors;
+        var modeErrors = startupModeErrors;
+        startupReadErrors = startupModeErrors = null;
+        if (readErrors.Count > 0) Dialogs.Show(ReadErrorNotice + "\n\n" + string.Join("\n", readErrors), "数据提示");
+        if (modeErrors.Count > 0) Dialogs.Show(ModeErrorNotice + "\n\n" + string.Join("\n", modeErrors.Distinct()), "桌面模式");
     }
 
     // 状态变了：窗口跟着调整；收在主便签里的便签变了，主便签的标签跟着刷新。
@@ -119,9 +135,8 @@ internal sealed partial class NoteController : IDisposable
             Width = 420, Height = 440, Format = format ?? Preferences.DefaultFormat, Appearance = Preferences.Appearance, CollectedBy = collectedBy,
             IsOnDesktop = previous?.Data.IsOnDesktop ?? (book.Notes.Count > 0 && book.Notes.All(note => note.Data.IsOnDesktop))
         };
-        var window = AddWindow(book.Add(data));
-        if (collectedBy is null && data.IsOnDesktop && !window.TrySetDesktopMode(true, out var error))
-            Dialogs.Show(error, "桌面模式");
+        // 新便签的正文是空的，建窗口不会读失败。
+        var window = WindowFor(book.Add(data))!;
         window.MarkDirty();
         window.SaveNow();
         if (collectedBy is null) window.Reveal(activate: true);
@@ -149,9 +164,10 @@ internal sealed partial class NoteController : IDisposable
     // 显示不因保存失败而中止：状态留在内存，窗口上的保存提示负责重试。
     private void ShowSaved(NoteEntry note, bool activate, double slide = 0)
     {
+        if (WindowFor(note) is not { } window) return;
         book.Update(note, data => data with { IsHidden = false });
         book.Save(note);
-        WindowFor(note).Reveal(activate, slide);
+        window.Reveal(activate, slide);
     }
 
     internal void ShowNote(NoteEntry note)
@@ -163,7 +179,7 @@ internal sealed partial class NoteController : IDisposable
     internal void ShowAll()
     {
         foreach (var note in book.Roots.ToArray()) ShowSaved(note, activate: false);
-        if ((book.Main ?? book.Roots.FirstOrDefault()) is { } front) WindowFor(front).Activate();
+        WindowOf(book.Main ?? book.Roots.FirstOrDefault())?.Activate();
     }
 
     internal void HideAll()

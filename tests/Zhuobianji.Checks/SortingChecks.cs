@@ -49,14 +49,15 @@ internal static partial class Program
         main.UpdateLayout();
         Check(main.Data.CollectionOrder.Length == 0 && VisibleTabOrder(main).SequenceEqual(children.Select(child => child.Id)),
             "旧记录没有排序字段时保持原创建顺序");
-        var a = controller.Windows[children[0].Id];
-        var b = controller.Windows[children[1].Id];
-        var c = controller.Windows[children[2].Id];
+        var a = controller.Book.Find(children[0].Id)!;
+        var b = controller.Book.Find(children[1].Id)!;
+        var c = controller.Book.Find(children[2].Id)!;
+        Check(controller.Windows.Count == 1 && new[] { a, b, c }.All(child => controller.WindowOf(child) is null), "收纳的便签启动时不建窗口");
         var originalButton = main.CollectionTabButtons[c.Data.Id];
         main.CollectionTabButtons[b.Data.Id].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         main.CollectionTabButtons[b.Data.Id].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-        Check(!b.IsVisible && VisibleTabOrder(main).SequenceEqual(children.Select(child => child.Id)),
-            "普通点击仍可展开／收起，不改变标签顺序");
+        Check(!controller.IsShown(b) && controller.WindowOf(b) is not null && VisibleTabOrder(main).SequenceEqual(children.Select(child => child.Id)),
+            "普通点击仍可展开／收起，收起后窗口留着，不改变标签顺序");
 
         main.Editor.InsertPlain("\n排序时刚写的文字");
         var dragOver = CollectionDragEvent(main, c.Data.Id, 1, DragDrop.DragOverEvent);
@@ -71,7 +72,7 @@ internal static partial class Program
         main.UpdateLayout();
         Check(drop.Effects == DragDropEffects.Move &&
             VisibleTabOrder(main).SequenceEqual(new[] { c.Data.Id, a.Data.Id, b.Data.Id }) &&
-            new[] { a, b, c }.All(child => Math.Abs(Shift(main, child.Data.Id)) < 0.5) && !c.IsVisible,
+            new[] { a, b, c }.All(child => Math.Abs(Shift(main, child.Data.Id)) < 0.5) && !controller.IsShown(c),
             "松手将标签移到最前并落回各自位置，收起的便签不被误展开");
         var savedMain = store.LoadAll().Notes.Single(note => note.Id == main.Data.Id);
         Check(savedMain.CollectionOrder.SequenceEqual(VisibleTabOrder(main)) &&
@@ -101,8 +102,8 @@ internal static partial class Program
         Check(VisibleTabOrder(main).SequenceEqual(new[] { c.Data.Id, b.Data.Id, a.Data.Id, added.Data.Id }),
             "新收纳项追加在现有顺序后面");
         controller.MoveCollectedNote(main, added.Data.Id, 0);
-        controller.ReleaseNote(b.Entry);
-        controller.DeleteNote(a.Entry);
+        controller.ReleaseNote(b);
+        controller.DeleteNote(a);
         main.UpdateLayout();
         Check(VisibleTabOrder(main).SequenceEqual(new[] { added.Data.Id, c.Data.Id }) &&
             store.LoadAll().Notes.Single(note => note.Id == c.Data.Id).Text == children[2].Text,

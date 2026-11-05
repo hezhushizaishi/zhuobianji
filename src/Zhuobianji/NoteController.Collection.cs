@@ -44,8 +44,7 @@ internal sealed partial class NoteController
     {
         if (note.Data.CollectedBy is null || book.Main is not { } mainNote) return false;
         ShowSaved(mainNote, activate: false);
-        var main = WindowFor(mainNote);
-        var window = WindowFor(note);
+        if (WindowOf(mainNote) is not { } main || WindowFor(note) is not { } window) return false;
         var slide = 0.0;
         if (!window.IsVisible)
         {
@@ -81,9 +80,13 @@ internal sealed partial class NoteController
     {
         if (note.Data.CollectedBy is null) return true;
         if (!book.Release(note)) return false;
-        var window = WindowFor(note);
-        if (note.Data.IsOnDesktop && !window.IsDesktopAttached) SetDesktopMode(window, true);
-        window.Reveal(activate: true);
+        // 取出时记下的关系已经存上；正文读不了就不显示（WindowFor 已提示）。新建的根便签窗口 WindowFor 已经挂过桌面。
+        var existed = WindowOf(note) is not null;
+        if (WindowFor(note) is { } window)
+        {
+            if (existed && note.Data.IsOnDesktop && !window.IsDesktopAttached) SetDesktopMode(window, true);
+            window.Reveal(activate: true);
+        }
         RefreshCollections();
         return true;
     }

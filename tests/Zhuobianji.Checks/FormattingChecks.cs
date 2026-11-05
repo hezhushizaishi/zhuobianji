@@ -165,10 +165,10 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        Check(controller.Windows.Count == expected.Length, "新进程恢复三种格式的便签数量");
+        Check(controller.Book.Notes.Count == expected.Length, "新进程恢复三种格式的便签数量");
         foreach (var data in expected)
         {
-            var window = controller.Windows[data.Id];
+            var window = WindowOf(controller, data.Id);
             Check(window.Editor.TextContent == data.Text && window.Editor.Format == data.Format,
                 "重开恢复文字与编辑格式");
         }

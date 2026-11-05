@@ -113,11 +113,11 @@ internal static partial class Program
         using var store = new NoteStore(Path.Combine(root, "editing", "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        Check(controller.Windows.Count == expected.Length && controller.Preferences.Appearance.FontSize == 19 && controller.ThemeMode == NoteThemeMode.Dark && NoteTheme.DarkMode,
+        Check(controller.Book.Notes.Count == expected.Length && controller.Preferences.Appearance.FontSize == 19 && controller.ThemeMode == NoteThemeMode.Dark && NoteTheme.DarkMode,
             "独立进程恢复便签数量、默认外观和深色模式");
         foreach (var data in expected)
         {
-            var window = controller.Windows[data.Id];
+            var window = WindowOf(controller, data.Id);
             Check(window.Editor.TextContent == data.Text && window.Editor.Format == data.Format && window.Editor.IsPreview == data.PreviewMarkdown &&
                 window.Data.Appearance == data.Appearance && window.Opacity == data.Appearance.Opacity && SameBounds(data, window.Snapshot()),
                 "独立进程恢复内容、格式、预览状态、外观及位置");

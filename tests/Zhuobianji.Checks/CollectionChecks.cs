@@ -197,9 +197,10 @@ internal static partial class Program
         Check(main.IsVisible && main.Editor.IsVisible && main.CollectionTabButtons.Count == 3 &&
             controller.Book.Collected(main.Entry).All(child => !controller.IsShown(child)),
             "新进程恢复左侧标签和主正文，收纳窗口默认收起");
+        Check(controller.Windows.Count == 1, "收纳的便签启动时不建窗口");
         foreach (var data in expected)
         {
-            var window = controller.Windows[data.Id];
+            var window = WindowOf(controller, data.Id);
             Check(window.Editor.TextContent == data.Text && window.Data.CollectedBy == data.CollectedBy &&
                 window.Editor.Format == data.Format, "重开恢复每张独立正文、格式及收纳关系");
         }
@@ -207,7 +208,7 @@ internal static partial class Program
         Check(Math.Abs(main.Snapshot().Left - mainBefore.Left) < 1 && Math.Abs(main.Snapshot().Width - mainBefore.Width) < 1 &&
             Math.Abs(main.NoteCard.ActualWidth - mainBefore.Width) < 1, "重开后主正文宽度不累计增加，位置保持一致");
         Check(!controller.Preferences.ShowFormatWarnings, "重开恢复不再提示的选择");
-        var markdown = controller.WindowOf(controller.Book.Collected(main.Entry).Single(child => child.Data.Format == NoteFormat.Markdown))!;
+        var markdown = WindowOf(controller, controller.Book.Collected(main.Entry).Single(child => child.Data.Format == NoteFormat.Markdown).Id);
         controller.ShowNote(markdown.Entry);
         Check(markdown.IsVisible && main.Editor.IsVisible && markdown.CloseButton.IsVisible && Equals(markdown.CloseButton.ToolTip, "收起便签（Ctrl+W）"),
             "托盘访问收纳项直接展开独立便签");

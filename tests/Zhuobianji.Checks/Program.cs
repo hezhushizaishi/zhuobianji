@@ -112,6 +112,9 @@ internal static partial class Program
 
     private static IEnumerable<TextElement> Elements(FlowDocument document) => DocumentText.Elements(document);
 
+    // 一张便签的窗口：隐藏、收纳的便签启动时不建窗口，这里建出来（隐藏着）。
+    private static NoteWindow WindowOf(NoteController controller, Guid id) => controller.WindowFor(controller.Book.Find(id)!)!;
+
     private static bool HasBold(FlowDocument document) =>
         Elements(document).Any(e => e.FontWeight == FontWeights.Bold || e.FontWeight == FontWeights.SemiBold);
 

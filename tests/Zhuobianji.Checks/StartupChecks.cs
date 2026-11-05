@@ -23,7 +23,7 @@ internal static partial class Program
             controller.Start();
             await Task.Delay(150);
             var note = controller.Windows[latest.Id];
-            Check(note.IsVisible && !note.Data.IsHidden && !controller.Windows[older.Id].IsVisible,
+            Check(note.IsVisible && !note.Data.IsHidden && controller.WindowOf(controller.Book.Find(older.Id)) is null,
                 "全部隐藏后重启至少显示最近一张，其他隐藏便签不被全部展开");
             Check(ForegroundWindow() == new WindowInteropHelper(note).Handle && !note.Topmost && !note.Data.IsPinned,
                 "普通便签启动到前台，原非置顶偏好保持");
@@ -48,9 +48,9 @@ internal static partial class Program
         {
             controller.Start();
             await Task.Delay(100);
-            Check(controller.Windows[latest.Id].IsVisible && !controller.Windows[older.Id].IsVisible,
+            Check(controller.Windows[latest.Id].IsVisible && controller.WindowOf(controller.Book.Find(older.Id)) is null,
                 "再次启动恢复可见和隐藏状态，内容未重复创建");
-            Check(controller.Windows.Count == 2 && controller.Windows[latest.Id].Editor.TextContent == latest.Text,
+            Check(controller.Book.Notes.Count == 2 && controller.Windows[latest.Id].Editor.TextContent == latest.Text,
                 "独立控制器重开后便签数量及内容保持");
         }
         using (var store = new NoteStore(Path.Combine(root, "new-computer", "Data")))

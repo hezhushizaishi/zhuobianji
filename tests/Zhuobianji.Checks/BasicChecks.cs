@@ -68,10 +68,11 @@ internal static partial class Program
         var store = new NoteStore(Path.Combine(root, "lifecycle", "Data"));
         using var controller = new NoteController(store, () => { }, enableHotkeys: false);
         controller.Start();
-        Check(controller.Windows.Count == expected.Length, "新进程恢复同样数量的便签");
+        Check(controller.Book.Notes.Count == expected.Length && controller.Windows.Count == expected.Count(data => !data.IsHidden),
+            "新进程恢复同样数量的便签，隐藏的便签不建窗口");
         foreach (var data in expected)
         {
-            var window = controller.Windows[data.Id];
+            var window = WindowOf(controller, data.Id);
             Check(window.Editor.TextContent == data.Text && SameBounds(window.Snapshot(), data) && window.Topmost == data.IsPinned,
                 "新进程恢复文本、位置尺寸和置顶");
             Check(window.Data.IsHidden == data.IsHidden && window.IsVisible == !data.IsHidden, "新进程保持隐藏状态");
