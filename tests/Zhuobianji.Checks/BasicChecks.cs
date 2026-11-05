@@ -32,16 +32,15 @@ internal static partial class Program
         Check(loaded.Notes.Count == 2 && !first.IsDirty && !second.IsDirty &&
             loaded.Notes.Single(n => n.Id == second.Data.Id).Text == second.Editor.TextContent, "防抖后保存最后一次输入");
         Check(first.Topmost && first.SaveError is null && second.SaveError is null, "置顶生效且两个窗口保存成功");
-        var savedBeforeFailure = File.ReadAllBytes(store.GetPath(first.Data.Id));
+        // 保存失败时数据和文件怎么样由 state 组测；这里只看窗口：显示失败提示、关闭时窗口留着。
         using (var locked = new FileStream(store.GetPath(first.Data.Id), FileMode.Open, FileAccess.Read, FileShare.Read))
         {
             first.Editor.TextContent += "\n保存失败测试。";
-            Check(!first.SaveNow() && first.IsDirty && first.SaveError is not null, "写入失败保留未保存状态并显示错误");
+            Check(!first.SaveNow() && first.SaveState == "保存失败 · 点击重试", "写入失败时便签底部显示「保存失败 · 点击重试」");
             controller.HideNote(first);
-            Check(first.IsVisible && !first.Data.IsHidden && savedBeforeFailure.SequenceEqual(File.ReadAllBytes(store.GetPath(first.Data.Id))),
-                "保存失败时不隐藏窗口、不改写旧文件");
+            Check(first.IsVisible && !first.Data.IsHidden, "保存失败时关闭不隐藏窗口");
         }
-        Check(first.SaveNow() && !first.IsDirty && first.SaveError is null, "解除失败原因后可以重试保存");
+        Check(first.SaveNow() && first.SaveState == "已保存", "解除失败原因后重试保存，提示变回「已保存」");
         controller.HideNote(first);
         Check(!first.IsVisible && first.Data.IsHidden && controller.Windows.Count == 2, "隐藏保留便签及数据");
         controller.ShowAll();
@@ -51,8 +50,8 @@ internal static partial class Program
         controller.ShowAll();
         var deleted = controller.CreateNote(second);
         deleted.Editor.TextContent = "待删除的内容";
-        Check(controller.DeleteNote(deleted.Entry) && controller.Windows.Count == 2 &&
-            !File.Exists(store.GetPath(deleted.Data.Id)) && !Directory.Exists(Path.Combine(store.DirectoryPath, "Deleted")), "删除活动窗口不留副本");
+        Check(controller.DeleteNote(deleted.Entry) && controller.Windows.Count == 2 && !deleted.IsVisible &&
+            controller.Book.Find(deleted.Data.Id) is null && first.IsVisible && second.IsVisible, "删除关掉这张窗口，其他便签不动");
         Capture(first, Path.Combine(root, "note-preview.png"));
         controller.HideNote(second);
         first.Editor.TextContent += "\n退出前刚输入的内容也必须保存。";

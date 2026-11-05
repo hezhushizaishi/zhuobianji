@@ -31,25 +31,18 @@ internal static partial class Program
             startup.SetEnabled(false);
             using (var key = Registry.CurrentUser.OpenSubKey(registryPath))
                 Check((string?)key?.GetValue("WeNote") == "其他程序路径", "关闭只移除当前程序的启动项");
-            // 0.8.x 的数据：设置里没有深浅色模式，每张便签各存一份 Dark。第一次启动按主便签定下模式、马上存进设置，之后不再写 Dark。
+            // 0.8.x 的数据：每张便签各存一份 Dark。迁移本身（定模式、存设置、不再写 Dark）由 state 组测；这里看启动后界面是深色。
             using (var legacyStore = new NoteStore(Path.Combine(root, "settings-legacy", "Data")))
             {
                 var legacyMain = new NoteData { Text = "0.8.x 的深色主便签", IsCollectionMain = true,
                     Appearance = new NoteAppearance { Palette = "green", LegacyDark = true } };
                 legacyStore.Save(legacyMain);
-                legacyStore.SavePreferences(new NotePreferences { Appearance = new NoteAppearance { LegacyDark = false } });
-                var settingsPath = Path.Combine(legacyStore.DirectoryPath, "settings.json");
-                Check(File.ReadAllText(legacyStore.GetPath(legacyMain.Id)).Contains("\"Dark\": true") && File.ReadAllText(settingsPath).Contains("\"Dark\":") &&
-                    legacyStore.LoadPreferences().ThemeMode is null, "准备好 0.8.x 形状的数据");
                 using var legacyController = new NoteController(legacyStore, () => { }, enableHotkeys: false);
                 legacyController.Start();
                 var legacyNote = legacyController.Windows[legacyMain.Id];
-                Check(legacyController.ThemeMode == NoteThemeMode.Dark && NoteTheme.DarkMode && legacyStore.LoadPreferences().ThemeMode == NoteThemeMode.Dark &&
+                Check(legacyController.ThemeMode == NoteThemeMode.Dark && NoteTheme.DarkMode &&
                     legacyNote.Resources["Surface"] == NoteTheme.For("green", true).Surface,
-                    "0.8.x 数据第一次启动按主便签定下深色模式，并马上存进设置");
-                legacyNote.MarkDirty();
-                Check(legacyNote.SaveNow() && !File.ReadAllText(legacyStore.GetPath(legacyMain.Id)).Contains("\"Dark\":") &&
-                    !File.ReadAllText(settingsPath).Contains("\"Dark\":"), "迁移以后便签和设置不再写深浅色");
+                    "0.8.x 数据第一次启动按主便签显示成深色");
             }
             using var store = new NoteStore(Path.Combine(root, "settings", "Data"));
             using var controller = new NoteController(store, () => { }, startup, enableHotkeys: false);

@@ -66,9 +66,8 @@ internal static partial class Program
         plain.Editor.TextContent = "长期记录\n第二行";
         plain.SaveNow();
         Check(controller.CollectNote(rich) && controller.CollectNote(markdown) && controller.CollectNote(plain) &&
-            main.CollectionTabButtons.Count == 3 && new[] { rich, markdown, plain }.All(child => !child.IsVisible) &&
-            store.LoadAll().Notes.Count(note => note.CollectedBy == main.Data.Id && note.IsHidden) == 3,
-            "三种格式收纳到第一层标签，关系与折叠状态保存");
+            main.CollectionTabButtons.Count == 3 && new[] { rich, markdown, plain }.All(child => !child.IsVisible),
+            "三种格式收纳后各出一个标签，窗口收起");
         var richTab = main.CollectionTabButtons[rich.Data.Id];
         var mainText = main.Editor.TextContent;
         richTab.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));

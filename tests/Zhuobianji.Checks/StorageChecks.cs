@@ -57,6 +57,5 @@ internal static partial class Program
         var withPreview = JsonSerializer.Deserialize<NoteData>("{\"Id\":\"" + Guid.NewGuid() + "\",\"Text\":\"第一行\\n第二行\",\"Preview\":\"旧的预览\"}")!;
         Check(withPreview.Preview == "第一行" && !JsonSerializer.Serialize(withPreview).Contains("Preview\""),
             "第一行预览由正文算出、不写进文件，旧文件里的 Preview 字段照常忽略");
-        Console.WriteLine($"PASS storage：{passed} 项检查");
     }
 }

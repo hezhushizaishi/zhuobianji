@@ -47,8 +47,8 @@ internal static partial class Program
         controller.Start();
         var main = controller.WindowOf(controller.Book.Main)!;
         main.UpdateLayout();
-        Check(main.Data.CollectionOrder.Length == 0 && VisibleTabOrder(main).SequenceEqual(children.Select(child => child.Id)),
-            "旧记录没有排序字段时保持原创建顺序");
+        // 排序规则（旧记录、挪动、原位不写、追加、取出删除后）由 state 组测；这里看标签跟着顺序走、拖放手感和重开。
+        Check(VisibleTabOrder(main).SequenceEqual(children.Select(child => child.Id)), "启动时标签按收纳顺序排");
         var a = controller.Book.Find(children[0].Id)!;
         var b = controller.Book.Find(children[1].Id)!;
         var c = controller.Book.Find(children[2].Id)!;
@@ -86,9 +86,6 @@ internal static partial class Program
         Check(VisibleTabOrder(main).SequenceEqual(new[] { c.Data.Id, b.Data.Id, a.Data.Id }) &&
             ReferenceEquals(main.CollectionTabButtons[c.Data.Id], originalButton),
             "可以从前面移到末尾，复用原标签控件");
-        var unchangedAt = main.Data.UpdatedAt;
-        controller.MoveCollectedNote(main, a.Data.Id, 3);
-        Check(main.Data.UpdatedAt == unchangedAt, "放回原位置不重复写入");
         var foreignDrop = CollectionDragEvent(main, Guid.NewGuid(), 1, DragDrop.DropEvent);
         main.CollectionScroll.RaiseEvent(foreignDrop);
         Check(foreignDrop.Effects == DragDropEffects.None && VisibleTabOrder(main).SequenceEqual(main.Data.CollectionOrder),
@@ -100,14 +97,12 @@ internal static partial class Program
         controller.CollectNote(added);
         main.UpdateLayout();
         Check(VisibleTabOrder(main).SequenceEqual(new[] { c.Data.Id, b.Data.Id, a.Data.Id, added.Data.Id }),
-            "新收纳项追加在现有顺序后面");
+            "新收纳的便签出现在标签末尾");
         controller.MoveCollectedNote(main, added.Data.Id, 0);
         controller.ReleaseNote(b);
         controller.DeleteNote(a);
         main.UpdateLayout();
-        Check(VisibleTabOrder(main).SequenceEqual(new[] { added.Data.Id, c.Data.Id }) &&
-            store.LoadAll().Notes.Single(note => note.Id == c.Data.Id).Text == children[2].Text,
-            "取出和删除后剩余标签顺序与各自正文保持");
+        Check(VisibleTabOrder(main).SequenceEqual(new[] { added.Data.Id, c.Data.Id }), "取出和删除后标签跟着去掉，剩下的顺序不变");
         Capture(main, Path.Combine(root, "collection-order.png"));
         File.WriteAllText(Path.Combine(root, "order-expected.json"), JsonSerializer.Serialize(VisibleTabOrder(main)));
         File.WriteAllText(Path.Combine(root, "main-expected.json"), JsonSerializer.Serialize(main.Snapshot()));

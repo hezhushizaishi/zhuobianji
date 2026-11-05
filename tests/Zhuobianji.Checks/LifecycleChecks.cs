@@ -70,9 +70,7 @@ internal static partial class Program
         using (var lockedSettings = new FileStream(Path.Combine(store.DirectoryPath, "settings.json"),
             FileMode.Open, FileAccess.Read, FileShare.Read))
         {
-            Check(!controller.TrySetFormatWarnings(!persisted.ShowFormatWarnings, out var formatError) &&
-                formatError is not null && controller.Preferences == persisted && store.LoadPreferences() == persisted,
-                "格式提示写入失败保持内存偏好和已保存设置");
+            // 设置写不进去时内存和文件不变由 state 组测；这里看快捷键要退回原来那组、重新注册。
             Check(!controller.TrySaveHotkeys(original, out var hotkeyError) &&
                 hotkeyError is not null && controller.Preferences == persisted && store.LoadPreferences() == persisted,
                 "快捷键存储失败保持文件与偏好，恢复已成功保存的组合");

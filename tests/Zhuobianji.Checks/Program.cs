@@ -25,6 +25,7 @@ internal static partial class Program
     private static readonly Dictionary<string, Func<Task>> Phases = new(StringComparer.Ordinal)
     {
         ["storage"] = Sync(StorageChecks),
+        ["state"] = Sync(StateChecks),
         ["basic"] = BasicChecks,
         ["basic-reload"] = Sync(BasicReload),
         ["desktop"] = DesktopChecks,
@@ -52,6 +53,9 @@ internal static partial class Program
         ["preview"] = PreviewChecks
     };
 
+    // 只用 Core 的阶段：不起界面程序，不开窗口。
+    private static readonly HashSet<string> CorePhases = ["storage", "state"];
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -67,9 +71,14 @@ internal static partial class Program
         }
         root = Path.GetFullPath(args[1]);
         Directory.CreateDirectory(root);
-        if (args[0] == "storage")
+        if (CorePhases.Contains(args[0]))
         {
-            try { check().GetAwaiter().GetResult(); return 0; }
+            try
+            {
+                check().GetAwaiter().GetResult();
+                Console.WriteLine($"PASS {args[0]}：{passed} 项检查");
+                return 0;
+            }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
         }
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
