@@ -187,6 +187,8 @@ function New-NoteSet([string]$path, [int]$count) {
         Appearance = [ordered]@{ Palette = 'mist'; Dark = $false; FontFamily = 'Microsoft YaHei UI'; FontSize = 17; Opacity = 1 }
         Hotkeys = [ordered]@{ NewNote = [ordered]@{ Modifiers = 0; Key = 0 }; ToggleNotes = [ordered]@{ Modifiers = 0; Key = 0 } }
         ShowFormatWarnings = $true
+        # 写好深浅色模式，测的是平常启动；0.8.x 数据第一次启动还要多存一次设置（重构二第 3 块起）。
+        ThemeMode = 'Light'
     }
     [IO.File]::WriteAllText((Join-Path $path 'settings.json'), (ConvertTo-Json $settings -Depth 5), $utf8)
 }
