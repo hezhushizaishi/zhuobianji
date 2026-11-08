@@ -1,0 +1,416 @@
+using System;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Windows;
+using System.Windows.Documents;
+using System.Windows.Media;
+using System.Xml.Linq;
+using AngleSharp.Dom;
+using AngleSharp.Html.Parser;
+using Markdig;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
+using Zhuobianji.Core;
+
+namespace Zhuobianji;
+
+// Markdown 预览与网页粘贴共用一条 HTML → WPF 文档链路，不引入浏览器运行环境。
+internal static class FormattedDocuments
+{
+    private static readonly MarkdownPipeline PastePipeline = new MarkdownPipelineBuilder().UsePipeTables().UseEmphasisExtras().UseAutoLinks().UseSoftlineBreakAsHardlineBreak().Build();
+    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
+        .UsePipeTables().UseEmphasisExtras().UseAutoLinks().Build();
+
+    internal static FlowDocument Create(NoteAppearance appearance)
+    {
+        var theme = NoteTheme.For(appearance);
+        var document = new FlowDocument
+        {
+            PagePadding = new Thickness(0), FontFamily = NoteTheme.Font(appearance.FontFamily),
+            FontSize = appearance.FontSize, Foreground = theme.Text, LineHeight = appearance.FontSize * NoteTheme.LineHeightFactor
+        };
+        var paragraphStyle = new Style(typeof(Paragraph));
+        paragraphStyle.Setters.Add(new Setter(System.Windows.Documents.Block.MarginProperty, Below(NoteTheme.ParagraphSpacing)));
+        document.Resources.Add(typeof(Paragraph), paragraphStyle);
+        return document;
+    }
+    internal static FlowDocument FromMarkdown(string text, NoteAppearance appearance, bool pasted = false)
+    {
+        var pipeline = pasted ? PastePipeline : Pipeline;
+        var document = Markdig.Markdown.Parse(PastedLinks.NormalizeCopiedSyntax(text), pipeline);
+        // 自动网址没有用户起的名称；只调整渲染树，不改 Markdown 源码。
+        foreach (var auto in document.Descendants<AutolinkInline>().ToArray())
+        {
+            var address = auto.IsEmail ? "mailto:" + auto.Url : auto.Url;
+            if (!NoteLinks.TryResolve(address, out var uri)) continue;
+            var named = new LinkInline { Url = uri.AbsoluteUri };
+            named.AppendChild(new LiteralInline(NoteLinks.ShortName(uri)));
+            auto.ReplaceBy(named);
+        }
+        foreach (var auto in document.Descendants<LinkInline>().Where(link => link.IsAutoLink).ToArray())
+        {
+            if (!NoteLinks.TryResolve(auto.Url, out var uri)) continue;
+            auto.Clear();
+            auto.AppendChild(new LiteralInline(NoteLinks.ShortName(uri)));
+        }
+        return FromHtml(Markdig.Markdown.ToHtml(document, pipeline), appearance);
+    }
+    internal static void ApplyReadingLayout(FlowDocument document, NoteAppearance appearance, bool pasted = false)
+    {
+        document.FontFamily = NoteTheme.Font(appearance.FontFamily);
+        document.FontSize = appearance.FontSize;
+        document.LineHeight = appearance.FontSize * NoteTheme.LineHeightFactor;
+        var theme = NoteTheme.For(appearance);
+        foreach (var element in DocumentText.Elements(document).ToArray())
+        {
+            var code = DocumentText.IsCode(element);
+            if (pasted && !code)
+            {
+                // 标题的相对大小保留，正文不继承网页或其他程序的字体、字号。
+                var heading = element is Paragraph && element.FontWeight >= FontWeights.SemiBold &&
+                    element.FontSize > appearance.FontSize * 1.15;
+                element.ClearValue(TextElement.FontFamilyProperty);
+                if (!heading) element.ClearValue(TextElement.FontSizeProperty);
+            }
+            // 从深色便签复制到浅色便签（或反过来）时，原主题的文字色和链接色换成本便签的；
+            // 网页和其他程序带来的近黑、近白文字色也去掉，跟随主题（NoteTheme.IsPageNeutral）。
+            if (pasted && element.ReadLocalValue(TextElement.ForegroundProperty) is SolidColorBrush brush)
+            {
+                if (element is Hyperlink) { if (NoteTheme.IsThemeLink(brush.Color)) element.Foreground = theme.Link; }
+                else if (NoteTheme.IsThemeText(brush.Color) || NoteTheme.IsPageNeutral(brush.Color)) element.ClearValue(TextElement.ForegroundProperty);
+            }
+            FollowTheme(element, theme, pasted);
+            if (element is System.Windows.Documents.Block block) block.ClearValue(System.Windows.Documents.Block.LineHeightProperty);
+            if (element is Paragraph paragraph && !code) paragraph.Margin = Below(NoteTheme.ParagraphSpacing);
+            if (element is System.Windows.Documents.List list)
+            { list.Margin = Below(NoteTheme.ListSpacing); list.Padding = new Thickness(NoteTheme.ListIndent, 0, 0, 0); }
+        }
+    }
+    // 代码底色、引用文字色、表格和分隔线边框换成当前主题的（见 NoteTheme.IsThemeCode）；粘贴时别处带来的近白、近黑底色去掉。
+    private static void FollowTheme(TextElement element, NoteTheme theme, bool pasted)
+    {
+        if (element.ReadLocalValue(TextElement.BackgroundProperty) is SolidColorBrush back)
+        {
+            if (NoteTheme.IsThemeCode(back.Color)) element.Background = theme.Code;
+            else if (pasted && NoteTheme.IsPageNeutral(back.Color)) element.ClearValue(TextElement.BackgroundProperty);
+        }
+        if (element.ReadLocalValue(TextElement.ForegroundProperty) is SolidColorBrush fore && NoteTheme.IsThemeMuted(fore.Color))
+            element.Foreground = theme.Muted;
+        DependencyProperty? border = element switch
+        {
+            System.Windows.Documents.Block => System.Windows.Documents.Block.BorderBrushProperty, TableCell => TableCell.BorderBrushProperty, _ => null
+        };
+        if (border is not null && element.ReadLocalValue(border) is SolidColorBrush edge && NoteTheme.IsThemeBorder(edge.Color))
+            element.SetValue(border, theme.Border);
+    }
+
+    internal static bool LooksLikeMarkdown(string text) => Regex.IsMatch(PastedLinks.NormalizeCopiedSyntax(text),
+        @"(?m)^\s{0,3}(#{1,6}\s+\S|```|~~~|>\s+\S|[-*+]\s+\S|\d+\.\s+\S)|\*\*[^*\r\n]+\*\*|\[[^\]\r\n]*\]\(\s*<?(?:https?://|file:|[A-Za-z]:[\\/]|\\\\)|\|[ \t]*:?-{3,}:?[ \t]*\|");
+
+    internal static string HtmlFragment(string html)
+    {
+        const string start = "<!--StartFragment-->", end = "<!--EndFragment-->";
+        var a = html.IndexOf(start, StringComparison.OrdinalIgnoreCase);
+        var b = html.IndexOf(end, StringComparison.OrdinalIgnoreCase);
+        if (a >= 0 && b > a) return html[(a + start.Length)..b];
+        var tag = html.IndexOf('<');
+        return tag >= 0 ? html[tag..] : html;
+    }
+
+    internal static FlowDocument FromHtml(string html, NoteAppearance appearance)
+    {
+        var document = Create(appearance);
+        using var dom = new HtmlParser().ParseDocument(HtmlFragment(html));
+        if (dom.Body is not null) AddBlocks(dom.Body.ChildNodes, document.Blocks, appearance);
+        if (document.Blocks.Count == 0) document.Blocks.Add(new Paragraph());
+        PastedLinks.Apply(document, appearance);
+        return document;
+    }
+
+    private static void AddBlocks(INodeList nodes, BlockCollection blocks, NoteAppearance appearance)
+    {
+        Paragraph? pending = null;
+        void Flush() { if (pending is not null) { blocks.Add(pending); pending = null; } }
+        foreach (var node in nodes)
+        {
+            if (node is IElement element && IsBlock(element.LocalName))
+            {
+                Flush();
+                switch (element.LocalName)
+                {
+                    case "p": case "h1": case "h2": case "h3": case "h4": case "h5": case "h6":
+                        var paragraph = Paragraph();
+                        if (element.LocalName.StartsWith('h'))
+                        {
+                            paragraph.FontWeight = FontWeights.SemiBold;
+                            paragraph.FontSize = appearance.FontSize * (element.LocalName is "h1" or "h2" ? 1.4 : 1.15);
+                        }
+                        AddInlines(element.ChildNodes, paragraph.Inlines, appearance);
+                        ApplyInlineStyle(element, paragraph);
+                        blocks.Add(paragraph);
+                        break;
+                    case "pre":
+                        blocks.Add(new Paragraph(new Run(element.TextContent.TrimEnd('\r', '\n')))
+                        {
+                            FontFamily = new FontFamily("Consolas"), FontSize = appearance.FontSize * 0.9,
+                            Background = NoteTheme.For(appearance).Code, Padding = new Thickness(10),
+                            Margin = Below(NoteTheme.BlockSpacing)
+                        });
+                        break;
+                    case "ul": case "ol":
+                        var list = new System.Windows.Documents.List
+                        {
+                            MarkerStyle = element.LocalName == "ol" ? TextMarkerStyle.Decimal : TextMarkerStyle.Disc,
+                            Padding = new Thickness(NoteTheme.ListIndent, 0, 0, 0), Margin = Below(NoteTheme.ListSpacing)
+                        };
+                        if (int.TryParse(element.GetAttribute("start"), out var index)) list.StartIndex = Math.Max(1, index);
+                        foreach (var item in element.Children.Where(e => e.LocalName == "li"))
+                        {
+                            var listItem = new ListItem();
+                            AddBlocks(item.ChildNodes, listItem.Blocks, appearance);
+                            if (listItem.Blocks.Count == 0) listItem.Blocks.Add(new Paragraph());
+                            list.ListItems.Add(listItem);
+                        }
+                        blocks.Add(list);
+                        break;
+                    case "blockquote":
+                        var quote = new Section
+                        {
+                            BorderBrush = NoteTheme.For(appearance).Border, BorderThickness = new Thickness(3, 0, 0, 0),
+                            Padding = new Thickness(12, 0, 0, 0), Margin = Below(NoteTheme.BlockSpacing),
+                            Foreground = NoteTheme.For(appearance).Muted
+                        };
+                        AddBlocks(element.ChildNodes, quote.Blocks, appearance);
+                        blocks.Add(quote);
+                        break;
+                    case "table":
+                        var table = new System.Windows.Documents.Table { CellSpacing = 0, Margin = Below(NoteTheme.BlockSpacing) };
+                        var group = new TableRowGroup();
+                        table.RowGroups.Add(group);
+                        foreach (var row in element.QuerySelectorAll("tr"))
+                        {
+                            var tableRow = new TableRow();
+                            foreach (var sourceCell in row.Children.Where(e => e.LocalName is "td" or "th"))
+                            {
+                                var cell = new TableCell
+                                {
+                                    BorderBrush = NoteTheme.For(appearance).Border, BorderThickness = new Thickness(0.5),
+                                    Padding = new Thickness(6), FontWeight = sourceCell.LocalName == "th" ? FontWeights.SemiBold : FontWeights.Normal
+                                };
+                                AddBlocks(sourceCell.ChildNodes, cell.Blocks, appearance);
+                                if (cell.Blocks.Count == 0) cell.Blocks.Add(new Paragraph());
+                                tableRow.Cells.Add(cell);
+                            }
+                            group.Rows.Add(tableRow);
+                        }
+                        blocks.Add(table);
+                        break;
+                    case "hr":
+                        blocks.Add(new Paragraph { BorderBrush = NoteTheme.For(appearance).Border, BorderThickness = new Thickness(0, 1, 0, 0), Margin = new Thickness(0, 8, 0, NoteTheme.BlockSpacing) });
+                        break;
+                    default:
+                        AddBlocks(element.ChildNodes, blocks, appearance);
+                        break;
+                }
+            }
+            else
+            {
+                if (pending is null && string.IsNullOrWhiteSpace(node.TextContent)) continue;
+                pending ??= Paragraph();
+                AddInline(node, pending.Inlines, appearance);
+            }
+        }
+        Flush();
+    }
+
+    private static Paragraph Paragraph() => new() { Margin = Below(NoteTheme.ParagraphSpacing) };
+    private static Thickness Below(double spacing) => new(0, 0, 0, spacing);
+
+    private static bool IsBlock(string tag) => tag is "p" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6"
+        or "pre" or "ul" or "ol" or "blockquote" or "table" or "hr" or "div" or "section" or "article";
+
+    private static void AddInlines(INodeList nodes, InlineCollection inlines, NoteAppearance appearance)
+    { foreach (var node in nodes) AddInline(node, inlines, appearance); }
+
+    private static void AddInline(INode node, InlineCollection inlines, NoteAppearance appearance)
+    {
+        if (node is IText text)
+        {
+            var value = Regex.Replace(text.Data, @"\s+", " ");
+            if (inlines.LastInline is LineBreak) value = value.TrimStart();
+            inlines.Add(new Run(value));
+            return;
+        }
+        if (node is not IElement element) return;
+        if (element.LocalName is "script" or "style" or "iframe" or "object" or "head") return;
+        if (element.LocalName == "br") { inlines.Add(new LineBreak()); return; }
+        if (element.LocalName == "img")
+        {
+            var alt = element.GetAttribute("alt");
+            if (!string.IsNullOrEmpty(alt)) inlines.Add(new Run("[图片：" + alt + "]"));
+            return;
+        }
+        Span span = element.LocalName switch
+        {
+            "strong" or "b" => new Bold(), "em" or "i" => new Italic(), "u" or "ins" => new Underline(),
+            "a" => CreateLink(element.GetAttribute("href"), appearance), _ => new Span()
+        };
+        if (element.LocalName is "s" or "del" or "strike") span.TextDecorations = TextDecorations.Strikethrough;
+        if (element.LocalName == "mark") span.Background = NoteTheme.Highlight;
+        if (element.LocalName == "code") { span.FontFamily = new FontFamily("Consolas"); span.Background = NoteTheme.For(appearance).Code; }
+        ApplyInlineStyle(element, span);
+        AddInlines(element.ChildNodes, span.Inlines, appearance);
+        if (span is Hyperlink hyperlink && hyperlink.NavigateUri is Uri target)
+        {
+            var label = new TextRange(hyperlink.ContentStart, hyperlink.ContentEnd).Text.Trim();
+            if (string.IsNullOrWhiteSpace(label))
+            {
+                hyperlink.Inlines.Clear();
+                hyperlink.Inlines.Add(new Run(NoteLinks.ShortName(target)));
+            }
+        }
+        inlines.Add(span);
+    }
+
+    private static Span CreateLink(string? address, NoteAppearance appearance)
+    {
+        if (!NoteLinks.TryResolve(address, out var uri)) return new Span();
+        return new Hyperlink
+        {
+            NavigateUri = uri, ToolTip = NoteLinks.Tooltip(uri),
+            Cursor = System.Windows.Input.Cursors.Hand, Foreground = NoteTheme.For(appearance).Link
+        };
+    }
+    internal static FlowDocument FromText(string text, NoteAppearance appearance, bool detectLinks = false)
+    {
+        var document = Create(appearance);
+        foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
+        {
+            var paragraph = Paragraph();
+            paragraph.Inlines.Add(new Run(line));
+            document.Blocks.Add(paragraph);
+        }
+        if (detectLinks) PastedLinks.Apply(document, appearance);
+        return document;
+    }
+    private static void ApplyInlineStyle(IElement element, TextElement target)
+    {
+        var declarations = (element.GetAttribute("style") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var declaration in declarations)
+        {
+            var pair = declaration.Split(':', 2);
+            if (pair.Length != 2) continue;
+            var key = pair[0].Trim().ToLowerInvariant();
+            var value = pair[1].Trim();
+            if (key == "font-weight" && (value == "bold" || int.TryParse(value, out var weight) && weight >= 600))
+                target.FontWeight = FontWeights.Bold;
+            else if (key == "font-style" && value == "italic") target.FontStyle = FontStyles.Italic;
+            else if (key == "color" || key == "background-color")
+            {
+                try
+                {
+                    var rgb = Regex.Match(value, @"^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$");
+                    var brush = rgb.Success
+                        ? new SolidColorBrush(Color.FromRgb(byte.Parse(rgb.Groups[1].Value), byte.Parse(rgb.Groups[2].Value), byte.Parse(rgb.Groups[3].Value)))
+                        : NoteTheme.B(value);
+                    // 原页面的黑字白底不带进便签（NoteTheme.IsPageNeutral），有颜色的保留。
+                    if (NoteTheme.IsPageNeutral(brush.Color)) continue;
+                    if (key == "color") target.Foreground = brush; else target.Background = brush;
+                }
+                catch (Exception ex) when (ex is FormatException or OverflowException or NotSupportedException) { }
+            }
+            else if (key == "font-size" && double.TryParse(value.TrimEnd('p', 'x', 't'), NumberStyles.Float, CultureInfo.InvariantCulture, out var size) && size is >= 6 and <= 72)
+                target.FontSize = value.EndsWith("pt", StringComparison.OrdinalIgnoreCase) ? size * 4 / 3 : size;
+            else if (key == "text-decoration" && target is Span span)
+            {
+                if (value.Contains("line-through")) span.TextDecorations = TextDecorations.Strikethrough;
+                else if (value.Contains("underline")) span.TextDecorations = TextDecorations.Underline;
+            }
+        }
+    }
+
+    internal static string Save(FlowDocument document, string format)
+    {
+        using var stream = new MemoryStream();
+        new TextRange(document.ContentStart, document.ContentEnd).Save(stream, format);
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    // 便签存储用的富文本不带主题值，换主题、改主题色后旧内容照样跟随。
+    internal static string SaveRich(FlowDocument document) => WithoutTheme(Save(document, DataFormats.Xaml));
+
+    // 返回 true 表示改了正文文字（旧的自动链接名称换成了现在的写法）。
+    internal static bool LoadRich(FlowDocument document, string xaml, NoteAppearance appearance)
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(WithoutTheme(xaml)));
+        new TextRange(document.ContentStart, document.ContentEnd).Load(stream, DataFormats.Xaml);
+        var renamed = false;
+        foreach (var link in DocumentText.Elements(document).OfType<Hyperlink>())
+        {
+            if (link.ReadLocalValue(TextElement.ForegroundProperty) == DependencyProperty.UnsetValue)
+                link.Foreground = NoteTheme.For(appearance).Link;
+            // 0.8.x 给裸网址起的名字只有域名，同一网站的链接分不清；用户自己起的名字不动。
+            if (link.NavigateUri is { Scheme: "http" or "https" } uri && link.Inlines.Count == 1 && link.Inlines.FirstInline is Run run &&
+                run.Text == uri.IdnHost && NoteLinks.ShortName(uri) is var name && name != run.Text)
+            { run.Text = name; renamed = true; }
+        }
+        return renamed;
+    }
+
+    // 换外观时正文里单独设过的格式跟着变：等于旧正文色、旧链接色的换成新的，局部字号按比例缩放，
+    // 单独写着旧正文字体的改成跟随正文字体（不把字体对象写到元素上，存储里只留系统字体名）。
+    internal static void Restyle(FlowDocument document, NoteAppearance before, NoteAppearance after, NoteTheme oldTheme, NoteTheme theme)
+    {
+        foreach (var element in DocumentText.Elements(document))
+        {
+            if (element.ReadLocalValue(TextElement.ForegroundProperty) is SolidColorBrush brush && brush.Color == oldTheme.Text.Color)
+                element.Foreground = theme.Text;
+            else if (element is Hyperlink && element.Foreground is SolidColorBrush linkBrush && linkBrush.Color == oldTheme.Link.Color)
+                element.Foreground = theme.Link;
+            if (element.ReadLocalValue(TextElement.FontSizeProperty) is double size) element.FontSize = size * after.FontSize / before.FontSize;
+            if (element.ReadLocalValue(TextElement.FontFamilyProperty) is FontFamily family && family.Source == NoteTheme.Font(before.FontFamily).Source)
+                element.ClearValue(TextElement.FontFamilyProperty);
+        }
+    }
+
+    // 没开窗口的便签换外观：直接改存着的富文本，结果和开着窗口时在设置里改一样，不用为它建窗口。
+    // 富文本读不了的只换外观、原文不动，打开时照常提示。
+    internal static NoteData Restyle(NoteData data, NoteAppearance appearance)
+    {
+        if (data.Format != NoteFormat.RichText || data.RichText is null) return data with { Appearance = appearance };
+        var document = Create(data.Appearance);
+        bool renamed;
+        try { renamed = LoadRich(document, data.RichText, data.Appearance); }
+        catch (Exception ex) when (ex is System.Windows.Markup.XamlParseException or System.Xml.XmlException or ArgumentException)
+        { return data with { Appearance = appearance }; }
+        Restyle(document, data.Appearance, appearance, NoteTheme.For(data.Appearance), NoteTheme.For(appearance));
+        return data with { Appearance = appearance, RichText = SaveRich(document), Text = renamed ? PlainText(document) : data.Text };
+    }
+
+    // TextRange.Save 把文档的字体、字号、行高和正文色写在根 Section 上，读取时会变成每段的本地值；
+    // 这里去掉这些，以及等于主题正文色的文字色、等于主题链接色的链接色（读取后按当前主题补回）。
+    private static string WithoutTheme(string xaml)
+    {
+        var root = XElement.Parse(xaml, LoadOptions.PreserveWhitespace);
+        foreach (var name in new[] { "FontFamily", "FontSize", "LineHeight", "Foreground" }) root.Attribute(name)?.Remove();
+        foreach (var element in root.Descendants())
+        {
+            if (element.Attribute("Foreground") is not { } foreground) continue;
+            Color color;
+            try { color = (Color)ColorConverter.ConvertFromString(foreground.Value); }
+            catch (Exception ex) when (ex is FormatException or NotSupportedException) { continue; }
+            if (element.Name.LocalName == "Hyperlink" ? NoteTheme.IsThemeLink(color) : NoteTheme.IsThemeText(color)) foreground.Remove();
+        }
+        return root.ToString(SaveOptions.DisableFormatting);
+    }
+
+    internal static string PlainText(FlowDocument document)
+    {
+        var text = new TextRange(document.ContentStart, document.ContentEnd).Text;
+        if (text.EndsWith("\r\n", StringComparison.Ordinal)) text = text[..^2];
+        return text.Replace("\r\n", "\n");
+    }
+}

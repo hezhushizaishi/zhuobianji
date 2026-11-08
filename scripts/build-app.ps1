@@ -10,14 +10,23 @@ if (Test-Path -LiteralPath $outputPath) {
     $resolvedOutput = (Resolve-Path -LiteralPath $outputPath).ProviderPath
     if (-not $resolvedOutput.StartsWith($buildPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw '构建输出路径无效。' }
 }
+# 版本号只写在 csproj；README 顶部和使用说明开头写着的版本要跟着改，发版时漏改就停在这里。
+$csproj = [xml](Get-Content -LiteralPath (Join-Path $projectRoot 'src\Zhuobianji\Zhuobianji.csproj') -Raw -Encoding UTF8)
+$version = @($csproj.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ })[0]
+if (-not $version) { throw 'csproj 里没有 <Version>。' }
+foreach ($doc in @('README.md', 'docs\使用说明.md')) {
+    if (-not (Get-Content -LiteralPath (Join-Path $projectRoot $doc) -Raw -Encoding UTF8).Contains($version)) {
+        throw "$doc 里没写当前版本 $version（版本号以 csproj 为准，发版时 README 顶部和使用说明开头一起改）。"
+    }
+}
 $stagingPath = $outputPath + '.publishing-' + [guid]::NewGuid().ToString('N')
 $retiredPath = $outputPath + '.retired-' + [guid]::NewGuid().ToString('N')
 $promoted = $false
 try {
     # 在空目录发布；构建失败时原 current 仍在原处。
-    & (Join-Path $PSScriptRoot 'dotnet.cmd') publish (Join-Path $projectRoot 'src\WeNote.App\WeNote.App.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeSourceRevisionInInformationalVersion=false -p:DebugType=embedded -p:NuGetAudit=false --nologo --verbosity minimal -o $stagingPath
+    & dotnet publish (Join-Path $projectRoot 'src\Zhuobianji\Zhuobianji.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded -p:NuGetAudit=false --nologo --verbosity minimal -o $stagingPath
     if ($LASTEXITCODE -ne 0) { throw '桌边记构建失败，已有输出保留。' }
-    Move-Item -LiteralPath (Join-Path $stagingPath 'WeNote.Rewrite.exe') -Destination (Join-Path $stagingPath '桌边记.exe')
+    Move-Item -LiteralPath (Join-Path $stagingPath 'Zhuobianji.exe') -Destination (Join-Path $stagingPath '桌边记.exe')
     $docsPath = Join-Path $stagingPath 'docs'
     New-Item -ItemType Directory -Path $docsPath -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $projectRoot 'docs\使用说明.md') -Destination (Join-Path $docsPath '使用说明.md')

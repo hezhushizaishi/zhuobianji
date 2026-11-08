@@ -1,0 +1,29 @@
+<UserControl x:Class="Zhuobianji.NoteEditor" x:ClassModifier="internal"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <Grid>
+  <RichTextBox x:Name="Rich" Background="Transparent" BorderThickness="0" Padding="0"
+   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+   AcceptsTab="True" IsDocumentEnabled="True" IsUndoEnabled="True" UndoLimit="100" AutomationProperties.Name="富文本内容" />
+  <TextBox x:Name="Source" Background="Transparent" BorderThickness="0" Padding="0"
+   TextWrapping="Wrap" AcceptsReturn="True" AcceptsTab="True" VerticalScrollBarVisibility="Auto"
+   Visibility="Collapsed" IsUndoEnabled="True" UndoLimit="100" AutomationProperties.Name="Markdown 源码" />
+  <FlowDocumentScrollViewer x:Name="Preview" Background="Transparent" BorderThickness="0" Padding="0"
+   IsToolBarVisible="False" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+   AutomationProperties.Name="Markdown 预览" />
+  <TextBlock x:Name="Hint" Text="写点什么…" IsHitTestVisible="False" />
+  <Popup x:Name="LinkCard" Placement="Bottom" HorizontalOffset="-6" AllowsTransparency="True" StaysOpen="True" Focusable="False" PopupAnimation="Fade">
+   <ContentControl Style="{DynamicResource PopupCard}" Padding="12,8,12,6" MinWidth="212" MaxWidth="352">
+    <StackPanel>
+     <TextBlock x:Name="LinkCardAddress" Style="{DynamicResource LinkCardAddress}" />
+     <StackPanel Orientation="Horizontal" Margin="-6,4,0,0">
+      <Button x:Name="LinkCardOpen" Style="{DynamicResource CardButton}" Content="打开" Click="OnCardOpen" />
+      <Button x:Name="LinkCardCopy" Style="{DynamicResource CardButton}" Content="复制地址" Click="OnCardCopy" />
+      <Button x:Name="LinkCardEdit" Style="{DynamicResource CardButton}" Content="修改" Click="OnCardEdit" />
+      <Button x:Name="LinkCardUnlink" Style="{DynamicResource CardButton}" Content="取消链接" Click="OnCardUnlink" />
+     </StackPanel>
+    </StackPanel>
+   </ContentControl>
+  </Popup>
+ </Grid>
+</UserControl>

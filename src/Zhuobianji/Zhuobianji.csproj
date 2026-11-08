@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Zhuobianji</AssemblyName>
+    <!-- 版本号只写这一处：「关于」页、托盘、exe 属性都从这里来；README 顶部和使用说明开头要跟着改（build-app.ps1 会核对）。 -->
+    <Version>1.0.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Product>桌边记</Product>
+    <AssemblyTitle>桌边记</AssemblyTitle>
+    <Company>桌边记</Company>
+    <DebugType>embedded</DebugType>
+    <ApplicationIcon>Assets\zhuobianji.ico</ApplicationIcon>
+    <Description>桌边记</Description>
+    <Copyright>Copyright (c) 2026 hezhushizaishi</Copyright>
+    <!-- WPF 等库自带十几种语言的界面文字（约 7 MB）；桌边记界面只有中文，只留简体、繁体。 -->
+    <SatelliteResourceLanguages>zh-Hans;zh-Hant</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\zhuobianji.ico" />
+    <Resource Include="Assets\Fonts\*.otf" />
+    <Resource Include="Assets\Icons\*.ttf" />
+    <EmbeddedResource Include="..\..\LICENSE" LogicalName="Zhuobianji.Notices.LICENSE" />
+    <EmbeddedResource Include="..\..\THIRD-PARTY-NOTICES.txt" LogicalName="Zhuobianji.Notices.THIRD-PARTY-NOTICES.txt" />
+    <EmbeddedResource Include="..\..\DOTNET-THIRD-PARTY-NOTICES.txt" LogicalName="Zhuobianji.Notices.DOTNET-THIRD-PARTY-NOTICES.txt" />
+    <ProjectReference Include="..\Zhuobianji.Core\Zhuobianji.Core.csproj" />
+    <PackageReference Include="Markdig" Version="1.4.0" />
+    <PackageReference Include="AngleSharp" Version="1.8.3" />
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
+    <InternalsVisibleTo Include="Zhuobianji.Checks" />
+    <Content Include="..\..\THIRD-PARTY-NOTICES.txt" Link="docs\THIRD-PARTY-NOTICES.txt" ExcludeFromSingleFile="true" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\DOTNET-THIRD-PARTY-NOTICES.txt" Link="docs\DOTNET-THIRD-PARTY-NOTICES.txt" ExcludeFromSingleFile="true" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

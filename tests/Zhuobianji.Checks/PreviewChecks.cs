@@ -1,0 +1,319 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using Zhuobianji;
+using Zhuobianji.Core;
+
+namespace Zhuobianji.Checks;
+
+internal static partial class Program
+{
+    // 使用实际窗口控件和独立演示数据；背景只用于排列截图，不绘制仿制界面。
+    private static async Task PreviewChecks()
+    {
+        using (var store = new NoteStore(Path.Combine(root, "collection", "Data")))
+        using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
+        {
+            controller.Start();
+            var main = controller.Windows.Values.Single();
+            // 主便签用常见尺寸 460×457：标签是基准的 1.5 倍，标签区宽 115。
+            PreviewSize(main, 460, 457, "mist");
+            main.Editor.Rich.Document = FormattedDocuments.FromHtml(
+                "<h2>今天先做这些</h2><p>慢慢来，一件一件完成。</p><ul><li>回一封邮件</li><li>整理桌面文件</li><li>给周末留点空闲</li></ul><p><b>下午三点</b>，出门走一走。</p>", main.Data.Appearance);
+            controller.SetMainNote(main);
+            var titles = new[] { "临时想法", "周末计划", "常用入口", "读书摘记" };
+            var children = titles.Select(title =>
+            {
+                var child = controller.CreateNote();
+                PreviewSize(child, 350, 342, "cream");
+                child.Editor.TextContent = title + "\n\n先写下来，暂时不用就收起。\n\n留点时间，做自己喜欢的事。";
+                controller.CollectNote(child);
+                return child;
+            }).ToArray();
+            controller.ExpandCollectedNote(children[0].Entry);
+            await PreviewReady(controller);
+            var lastTab = (FrameworkElement)main.CollectionTabs.Children[main.CollectionTabs.Children.Count - 1];
+            var afterLast = RailTop(main, main.CollectionNewButton) - RailTop(main, lastTab) - lastTab.ActualHeight;
+            Check(main.CollectionScroll.ScrollableHeight == 0 && afterLast >= 0 && afterLast < 12, "标签放得下时「新建」紧跟最后一张");
+            // 子便签从标签一侧抽出：卡片在主便签标签区左边 8，顶部对齐第一个标签（卡片顶 + 48）。主便签的坐标是标签区左边。
+            PreviewScene("collection.png", 981, 537, (children[0], 24, 88), (main, 382, 40));
+            controller.RequestExit();
+        }
+
+        // 标签很多时：尺寸不变，放不下的滚着看，不出滚动条，底部渐隐；「新建」钉在最下面。标签颜色取自各自的便签。
+        using (var store = new NoteStore(Path.Combine(root, "rail", "Data")))
+        using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
+        {
+            controller.Start();
+            var main = controller.Windows.Values.Single();
+            PreviewSize(main, 460, 457, "green");
+            main.Editor.TextContent = "主便签\n左边是收起来的便签。";
+            controller.SetMainNote(main);
+            var palettes = new[] { "green", "cream", "mist", "yellow", "pink", "neutral" };
+            var titles = new[] { "模型使用记录", "节点连接", "服务器", "重构原则", "设计提纲", "Solve", "代理设置", "周末计划", "", "读书摘记", "", "常用入口" };
+            for (var index = 0; index < titles.Length; index++)
+            {
+                var child = controller.CreateNote();
+                child.ApplyAppearance(new NoteAppearance { Palette = palettes[index % palettes.Length] });
+                child.Editor.TextContent = titles[index];
+                controller.CollectNote(child);
+            }
+            controller.ExpandCollectedNote(controller.Book.Collected(main.Entry).ElementAt(2));
+            await PreviewReady(controller);
+            var newBottom = RailTop(main, main.CollectionNewButton) + main.CollectionNewButton.ActualHeight;
+            Check(main.CollectionScroll.ScrollableHeight > 0 && main.CollectionNewButton.IsVisible &&
+                newBottom <= main.RailViewport.ActualHeight + 0.5 && newBottom > main.RailViewport.ActualHeight - 12,
+                "标签放不下时滚动，「新建」钉在标签区最下面，不用滚动就能看到");
+            PreviewScene("rail.png", 623, 521, (main, 24, 32));
+            // 「新建」是单独凸起的小键：不压到卡片下面，键面不透明（标签区后面是桌面）。
+            var key = main.CollectionNewButton;
+            var keyRight = key.TransformToAncestor(main).Transform(new Point(key.ActualWidth, 0)).X;
+            var cardLeft = main.NoteCard.TransformToAncestor(main).Transform(new Point()).X;
+            Check(keyRight < cardLeft - 4 && Opaque(key, new Point(4, key.ActualHeight / 2)), "「新建」是单独凸起的小键，不压到卡片下面，键面不透明");
+            // 深色模式：主便签、标签和展开的子便签一起变深，配色各自保留。
+            controller.TrySetThemeMode(NoteThemeMode.Dark, out _);
+            await PreviewReady(controller);
+            PreviewScene("rail-dark.png", 623, 521, (main, 24, 32));
+            controller.RequestExit();
+        }
+
+        using (var store = new NoteStore(Path.Combine(root, "formats", "Data")))
+        using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
+        {
+            controller.Start();
+            var rich = controller.Windows.Values.Single();
+            PreviewSize(rich, 340, 400, "mist");
+            rich.Editor.Rich.Document = FormattedDocuments.FromHtml(
+                "<h2>随手写，也能排整齐</h2><p>一句想法，一份清单。</p><p><b>重要的事</b>加粗，<span style='color:#C65E59'>喜欢的句子</span>换个颜色。</p><ul><li>带上相机</li><li>去公园看落叶</li></ul>", rich.Data.Appearance);
+            var markdown = controller.CreateNote(format: NoteFormat.Markdown);
+            PreviewSize(markdown, 340, 400, "cream");
+            markdown.Editor.TextContent = "# 周末的小计划\n\n写完，切到**预览**读一读。\n\n- 找一家安静的咖啡店\n- 读几页书\n- 给朋友回个消息\n\n> 留一点空白给自己。";
+            markdown.SetMarkdownPreview(true);
+            var plain = controller.CreateNote(format: NoteFormat.PlainText);
+            PreviewSize(plain, 340, 400, "green");
+            plain.Editor.TextContent = "只记几句话\n\n牛奶、面包、苹果\n记得带伞\n\n灵感来了就先写下，\n不必每次都整理得很正式。";
+            await PreviewReady(controller);
+            PreviewScene("formats.png", 1124, 464, (rich, 32, 32), (markdown, 392, 32), (plain, 752, 32));
+            controller.RequestExit();
+        }
+
+        using (var store = new NoteStore(Path.Combine(root, "links", "Data")))
+        using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
+        {
+            var material = Path.Combine(root, "演示资料");
+            Directory.CreateDirectory(material);
+            var document = Path.Combine(material, "项目说明.txt");
+            File.WriteAllText(document, "桌边记截图使用的演示文件。");
+            var source = "# 常用入口\n\n资料和链接，放在手边。\n\n- [项目说明](" + new Uri(document).AbsoluteUri + ")\n- [资料文件夹](" + new Uri(material).AbsoluteUri + ")\n- [GitHub](https://github.com/)\n\n下次要用，点文字就能打开。";
+            controller.Start();
+            var rich = controller.Windows.Values.Single();
+            PreviewSize(rich, 420, 380, "mist");
+            rich.Editor.Rich.Document = FormattedDocuments.FromMarkdown(source, rich.Data.Appearance);
+            var markdown = controller.CreateNote(format: NoteFormat.Markdown);
+            PreviewSize(markdown, 420, 380, "cream");
+            markdown.Editor.TextContent = source;
+            markdown.SetMarkdownPreview(true);
+            await PreviewReady(controller);
+            PreviewScene("links.png", 956, 444, (rich, 40, 32), (markdown, 496, 32));
+            controller.RequestExit();
+        }
+        // 细节图：排版栏、文字颜色、更多菜单、深色便签，以及一张屏幕实拍（真实阴影和文字渲染）。
+        using (var store = new NoteStore(Path.Combine(root, "details", "Data")))
+        using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
+        {
+            controller.Start();
+            var rich = controller.Windows.Values.Single();
+            PreviewSize(rich, 360, 330, "cream");
+            rich.Editor.Rich.Document = FormattedDocuments.FromHtml(
+                "<h2>细节</h2><p>选中文字，再点下面的图标。</p><ul><li><b>粗体</b>、<i>斜体</i>、<u>下划线</u></li><li><span style='color:#C95555'>换个颜色</span></li></ul>", rich.Data.Appearance);
+            rich.FormatButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            var markdownNote = controller.CreateNote(format: NoteFormat.Markdown);
+            markdownNote.Width = 360 + 2 * NoteWindow.ShadowMargin;
+            markdownNote.Height = 330 + 2 * NoteWindow.ShadowMargin;
+            markdownNote.ApplyAppearance(new NoteAppearance { Palette = "mist" });
+            markdownNote.Editor.TextContent = "# Markdown 便签\n\n写完切到预览。\n\n- 顶栏和底栏都是图标\n- 悬停才变实";
+            markdownNote.SetMarkdownPreview(true);
+            await PreviewReady(controller);
+            PreviewScene("details.png", 820, 394, (rich, 32, 32), (markdownNote, 428, 32));
+
+            rich.Editor.Rich.Selection.Select(rich.Editor.Rich.Document.ContentStart, rich.Editor.Rich.Document.ContentStart);
+            rich.ColorButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            await Task.Delay(300);
+            PreviewPart("colors.png", (FrameworkElement)rich.ColorPopup.Child);
+            rich.ColorPopup.IsOpen = false;
+            var menu = rich.MoreButton.ContextMenu;
+            menu.PlacementTarget = rich.MoreButton;
+            menu.IsOpen = true;
+            await Task.Delay(300);
+            PreviewPart("menu.png", menu);
+            menu.IsOpen = false;
+            rich.ModeButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            await Task.Delay(300);
+            PreviewPart("format-menu.png", rich.ModeButton.ContextMenu);
+            rich.ModeButton.ContextMenu.IsOpen = false;
+
+            // 托盘菜单和弹窗：和便签同一套配色、菜单和按键。
+            var tray = controller.Tray!;
+            tray.Rebuild();
+            tray.Menu.Placement = PlacementMode.AbsolutePoint;
+            tray.Menu.HorizontalOffset = rich.Left + 40;
+            tray.Menu.VerticalOffset = rich.Top + 40;
+            tray.Menu.IsOpen = true;
+            await Task.Delay(300);
+            PreviewPart("tray-menu.png", tray.Menu);
+            tray.Menu.IsOpen = false;
+            await PreviewDialog("settings.png", controller.ShowSettings(rich));
+            var about = controller.ShowSettings(rich);
+            about.AboutTab.IsChecked = true;
+            await PreviewDialog("settings-about.png", about);
+            about = controller.ShowSettings(rich);
+            about.AboutTab.IsChecked = true;
+            about.LicenseButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            await PreviewDialog("licenses.png", about.Licenses!);
+            about.Close();
+            await PreviewDialog("confirm.png", new MessageDialog(rich.Data.Appearance, "删除便签", "这张便签会永久删除，无法撤销。", "删除",
+                confirm: true, danger: true, width: 400) { Owner = rich });
+            // 深浅色是整个程序的模式：切到深色拍深色的设置和链接窗口，再切回来。
+            controller.TrySetThemeMode(NoteThemeMode.Dark, out _);
+            await PreviewDialog("settings-dark.png", controller.ShowSettings(markdownNote));
+            await PreviewDialog("link-dialog.png", new LinkWindow(markdownNote.Data.Appearance, "https://example.com/docs/start") { Owner = markdownNote });
+            controller.TrySetThemeMode(NoteThemeMode.Light, out _);
+
+            var backdrop = new Window { Left = rich.Left - 40, Top = rich.Top - 40, Width = rich.Width + 80, Height = rich.Height + 80,
+                Topmost = true, WindowStyle = WindowStyle.None, ShowInTaskbar = false, Background = NoteTheme.B("#E7ECEE") };
+            backdrop.Show();
+            rich.Topmost = true;
+            rich.Activate();
+            await Task.Delay(300);
+            ScreenShot(rich, Path.Combine(root, "screen-note.png"));
+
+            backdrop.Close();
+            controller.RequestExit();
+        }
+
+        // Markdown 源码：语法符号变淡，浅色和深色各一张。
+        using (var store = new NoteStore(Path.Combine(root, "markdown-source", "Data")))
+        using (var controller = new NoteController(store, () => { }, enableHotkeys: false))
+        {
+            controller.Start();
+            var note = controller.CreateNote(format: NoteFormat.Markdown);
+            PreviewSize(note, 380, 330, "cream");
+            note.Editor.TextContent = "# 周末的小计划\n\n写完切到**预览**读一读；源码里的符号是淡的。\n\n- 找一家*安静*的咖啡店\n- 读几页书，记下 `第 3 章`\n- [展览预约](https://example.com/tickets)\n\n> 留一点空白给自己。";
+            await PreviewReady(controller);
+            Check(note.Editor.Syntax.Veiled.Count >= 10, "Markdown 源码打开后语法符号盖上淡色");
+            PreviewScene("markdown-source.png", 444, 394, (note, 32, 32));
+            controller.TrySetThemeMode(NoteThemeMode.Dark, out _);
+            await PreviewReady(controller);
+            PreviewScene("markdown-source-dark.png", 444, 394, (note, 32, 32));
+            controller.TrySetThemeMode(NoteThemeMode.Light, out _);
+            // 光标停在行首的 # 前面时不能跟着变淡：光标画在淡色层下面，所以那一段让开光标那一条；光标走开再盖满。
+            var source = note.Editor.Source;
+            note.Activate();
+            source.Focus();
+            source.CaretIndex = 0;
+            await Task.Delay(100);
+            var lineStart = source.GetRectFromCharacterIndex(0).X;
+            var gapped = note.Editor.Syntax.Veiled[0];
+            source.CaretIndex = 4;
+            await Task.Delay(100);
+            var covered = note.Editor.Syntax.Veiled[0];
+            Check(source.IsKeyboardFocused && gapped.Left >= lineStart + SystemParameters.CaretWidth && Math.Abs(covered.Left - lineStart) < 0.5 && covered.Right == gapped.Right,
+                "Markdown 源码的光标停在 # 前面时，淡色让开光标，光标不变淡；光标走开再盖满");
+            controller.RequestExit();
+        }
+
+        await PreviewDemo();
+        await SocialPreview();
+        Console.WriteLine("已生成 collection.png、formats.png、links.png、rail.png、demo.png（动图）、social-preview.png 和细节图（含托盘菜单、弹窗、关于、Markdown 源码）；未使用正式 Data。");
+    }
+
+    private static double RailTop(NoteWindow main, FrameworkElement element) =>
+        element.TransformToAncestor(main.RailViewport).Transform(new Point()).Y;
+
+    // 便签窗口四周有阴影边距：这里的宽高和场景坐标都按正文卡片算。
+    private static void PreviewSize(NoteWindow window, double width, double height, string palette)
+    {
+        window.Width = width + 2 * NoteWindow.ShadowMargin;
+        window.Height = height + 2 * NoteWindow.ShadowMargin;
+        window.ApplyAppearance(new NoteAppearance { Palette = palette });
+    }
+
+    // 弹窗连同四周的阴影一起拍，等出现动画播完。
+    private static async Task PreviewDialog(string name, Window dialog)
+    {
+        if (!dialog.IsVisible) dialog.Show();
+        await Task.Delay(300);
+        PreviewPart(name, dialog);
+        dialog.Close();
+    }
+
+    // 元素在 point 处画出来是不是完全不透明（用 VisualBrush 画，不受元素在父级里的位置影响）。
+    private static bool Opaque(FrameworkElement element, Point point)
+    {
+        var image = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth), (int)Math.Ceiling(element.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+        var scene = new DrawingVisual();
+        using (var drawing = scene.RenderOpen())
+            drawing.DrawRectangle(new VisualBrush(element), null, new Rect(0, 0, element.ActualWidth, element.ActualHeight));
+        image.Render(scene);
+        var pixel = new byte[4];
+        image.CopyPixels(new Int32Rect((int)point.X, (int)point.Y, 1, 1), pixel, 4, 0);
+        return pixel[3] == 255;
+    }
+
+    private static void PreviewPart(string name, FrameworkElement part)
+    {
+        part.UpdateLayout();
+        var image = new RenderTargetBitmap((int)Math.Ceiling(part.ActualWidth * 2), (int)Math.Ceiling(part.ActualHeight * 2), 192, 192, PixelFormats.Pbgra32);
+        var scene = new DrawingVisual();
+        using (var drawing = scene.RenderOpen())
+        {
+            drawing.DrawRectangle(NoteTheme.B("#E7ECEE"), null, new Rect(0, 0, part.ActualWidth, part.ActualHeight));
+            var captured = new RenderTargetBitmap(image.PixelWidth, image.PixelHeight, 192, 192, PixelFormats.Pbgra32);
+            captured.Render(part);
+            drawing.DrawImage(captured, new Rect(0, 0, part.ActualWidth, part.ActualHeight));
+        }
+        image.Render(scene);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(image));
+        using var file = File.Create(Path.Combine(root, name));
+        encoder.Save(file);
+    }
+
+    private static async Task PreviewReady(NoteController controller)
+    {
+        foreach (var window in controller.Windows.Values) window.SaveNow();
+        Keyboard.ClearFocus();
+        // 等标签抽出、窗口淡入等动画播完；窗口多时动画起步会晚一些。
+        await Task.Delay(600);
+        foreach (var window in controller.Windows.Values.Where(window => window.IsVisible)) window.UpdateLayout();
+    }
+
+    private static void PreviewScene(string name, int width, int height, params (Window Window, double X, double Y)[] notes)
+    {
+        var scene = new DrawingVisual();
+        using (var drawing = scene.RenderOpen())
+        {
+            drawing.DrawRectangle(NoteTheme.B("#E7ECEE"), null, new Rect(0, 0, width, height));
+            foreach (var (window, x, y) in notes)
+            {
+                var content = (FrameworkElement)window.Content;
+                var captured = new RenderTargetBitmap((int)Math.Ceiling(content.ActualWidth * 2),
+                    (int)Math.Ceiling(content.ActualHeight * 2), 192, 192, PixelFormats.Pbgra32);
+                captured.Render(content);
+                drawing.DrawImage(captured, new Rect(x - NoteWindow.ShadowMargin, y - NoteWindow.ShadowMargin, content.ActualWidth, content.ActualHeight));
+            }
+        }
+        var image = new RenderTargetBitmap(width * 2, height * 2, 192, 192, PixelFormats.Pbgra32);
+        image.Render(scene);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(image));
+        using var file = File.Create(Path.Combine(root, name));
+        encoder.Save(file);
+    }
+}

@@ -1,0 +1,150 @@
+<local:NoteDialog x:Class="Zhuobianji.SettingsWindow" x:ClassModifier="internal"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:local="clr-namespace:Zhuobianji"
+ Title="桌边记设置" Width="424">
+ <StackPanel Margin="16,14,16,16">
+  <!-- 分页：键托里三个开关，选中的一页凹进去。三页叠在一起，没选中的只隐藏不收起，窗口按最高的一页定高，切换时不跳。 -->
+  <ContentControl Style="{StaticResource KeyTray}" HorizontalAlignment="Left">
+   <StackPanel Orientation="Horizontal">
+    <RadioButton x:Name="AppearanceTab" Style="{StaticResource DialogTab}" Content="外观" Checked="OnPage" />
+    <RadioButton x:Name="ProgramTab" Style="{StaticResource DialogTab}" Content="程序" Margin="2,0,0,0" Checked="OnPage" />
+    <RadioButton x:Name="HotkeyTab" Style="{StaticResource DialogTab}" Content="快捷键" Margin="2,0,0,0" Checked="OnPage" />
+    <RadioButton x:Name="AboutTab" Style="{StaticResource DialogTab}" Content="关于" Margin="2,0,0,0" Checked="OnPage" />
+   </StackPanel>
+  </ContentControl>
+  <Grid Margin="0,16,0,0">
+   <StackPanel x:Name="AppearancePage">
+    <!-- 深浅色是整个程序的模式，所有便签一起变；下面的配色、字体、字号和透明度只改这一张。 -->
+    <DockPanel Margin="0,0,0,4">
+     <ContentControl DockPanel.Dock="Right" Style="{StaticResource KeyTray}">
+      <StackPanel Orientation="Horizontal">
+       <RadioButton x:Name="LightMode" Style="{StaticResource DialogTab}" Content="浅色" Checked="OnThemeMode" />
+       <RadioButton x:Name="DarkMode" Style="{StaticResource DialogTab}" Content="深色" Margin="2,0,0,0" Checked="OnThemeMode" />
+       <RadioButton x:Name="SystemMode" Style="{StaticResource DialogTab}" Content="跟随系统" Margin="2,0,0,0" Checked="OnThemeMode" />
+      </StackPanel>
+     </ContentControl>
+     <TextBlock Text="深浅色" VerticalAlignment="Center" />
+    </DockPanel>
+    <TextBlock Style="{StaticResource DialogHint}" Text="所有便签一起切换。" Margin="0,0,0,16" />
+    <StackPanel x:Name="NotePanel">
+     <TextBlock x:Name="NoteLabel" Style="{StaticResource DialogHint}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,0,0,12" />
+     <DockPanel Margin="0,0,0,4">
+      <TextBlock x:Name="PaletteLabel" DockPanel.Dock="Right" Style="{StaticResource DialogValue}" />
+      <TextBlock Text="配色" VerticalAlignment="Center" />
+     </DockPanel>
+     <StackPanel x:Name="PalettePanel" Orientation="Horizontal" Margin="-5,0,0,12" />
+     <DockPanel Margin="0,0,0,14">
+      <Button x:Name="FontButton" DockPanel.Dock="Right" Style="{StaticResource KeyButton}" Padding="12,0,8,0" AutomationProperties.Name="字体" Click="OnFontMenu">
+       <StackPanel Orientation="Horizontal">
+        <TextBlock x:Name="FontLabel" VerticalAlignment="Center" />
+        <local:NoteIcon Symbol="ChevronDown20" Margin="6,0,0,0" FontSize="12" />
+       </StackPanel>
+       <Button.ContextMenu><ContextMenu x:Name="FontMenu" /></Button.ContextMenu>
+      </Button>
+      <TextBlock Text="字体" VerticalAlignment="Center" />
+     </DockPanel>
+     <DockPanel>
+      <TextBlock x:Name="FontSizeLabel" DockPanel.Dock="Right" Style="{StaticResource DialogValue}" />
+      <TextBlock Text="字号" VerticalAlignment="Center" />
+     </DockPanel>
+     <Slider x:Name="SizeSlider" Minimum="12" Maximum="32" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="OnAppearanceChanged" Margin="0,6,0,12" />
+     <DockPanel>
+      <TextBlock x:Name="OpacityLabel" DockPanel.Dock="Right" Style="{StaticResource DialogValue}" />
+      <TextBlock Text="透明度" VerticalAlignment="Center" />
+     </DockPanel>
+     <Slider x:Name="OpacitySlider" ToolTip="100% 不透明，最低 70%，字一直看得清。" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
+      ValueChanged="OnAppearanceChanged" Margin="0,6,0,16" />
+     <StackPanel Orientation="Horizontal">
+      <Button x:Name="DefaultsButton" Style="{StaticResource KeyButton}" Content="设为默认外观" ToolTip="之后新建的便签用这套外观" Click="OnSaveDefaults" />
+      <Button x:Name="ApplyAllButton" Style="{StaticResource KeyButton}" Content="应用到全部便签" Margin="8,0,0,0"
+       ToolTip="把这张的字体、字号和透明度用到所有便签，各自的配色不变" Click="OnApplyToAll" />
+     </StackPanel>
+    </StackPanel>
+   </StackPanel>
+   <StackPanel x:Name="ProgramPage" Visibility="Hidden">
+    <DockPanel Margin="0,0,0,14">
+     <ToggleButton x:Name="StartupSwitch" DockPanel.Dock="Right" Style="{StaticResource Switch}" AutomationProperties.Name="开机自启"
+      Checked="OnStartupChanged" Unchecked="OnStartupChanged" />
+     <TextBlock Text="开机自启" VerticalAlignment="Center" />
+    </DockPanel>
+    <DockPanel Margin="0,0,0,4">
+     <ToggleButton x:Name="FormatWarningsSwitch" DockPanel.Dock="Right" Style="{StaticResource Switch}" AutomationProperties.Name="格式切换提示"
+      Checked="OnFormatWarningsChanged" Unchecked="OnFormatWarningsChanged" />
+     <TextBlock Text="格式切换提示" VerticalAlignment="Center" />
+    </DockPanel>
+    <TextBlock Style="{StaticResource DialogHint}" Text="切换格式可能丢失排版时，先说明再转换。" Margin="0,0,0,20" />
+    <TextBlock Text="数据位置" Margin="0,0,0,6" />
+    <TextBox x:Name="DataPath" IsReadOnly="True" TextWrapping="Wrap" Margin="0,0,0,10" />
+    <Button Style="{StaticResource KeyButton}" HorizontalAlignment="Left" Click="OnOpenData">
+     <StackPanel Orientation="Horizontal">
+      <local:NoteIcon Symbol="FolderOpen20" />
+      <TextBlock Text="打开数据文件夹" Margin="6,0,0,0" VerticalAlignment="Center" />
+     </StackPanel>
+    </Button>
+   </StackPanel>
+   <StackPanel x:Name="HotkeyPage" Visibility="Hidden">
+    <TextBlock Text="新建便签" Margin="0,0,0,6" />
+    <DockPanel Margin="0,0,0,14">
+     <Button DockPanel.Dock="Right" Style="{StaticResource KeyButton}" Content="清空" Tag="NewNoteHotkey" Margin="8,0,0,0" Click="OnClearHotkey" />
+     <TextBox x:Name="NewNoteHotkey" IsReadOnly="True" Tag="未设置" PreviewKeyDown="OnHotkeyKeyDown" GotKeyboardFocus="OnHotkeyFocus" LostKeyboardFocus="OnHotkeyBlur" />
+    </DockPanel>
+    <TextBlock Text="显示／隐藏全部" Margin="0,0,0,6" />
+    <DockPanel Margin="0,0,0,6">
+     <Button DockPanel.Dock="Right" Style="{StaticResource KeyButton}" Content="清空" Tag="ToggleNotesHotkey" Margin="8,0,0,0" Click="OnClearHotkey" />
+     <TextBox x:Name="ToggleNotesHotkey" IsReadOnly="True" Tag="未设置" PreviewKeyDown="OnHotkeyKeyDown" GotKeyboardFocus="OnHotkeyFocus" LostKeyboardFocus="OnHotkeyBlur" />
+    </DockPanel>
+    <TextBlock Style="{StaticResource DialogHint}" Text="点一下输入框，按 Ctrl 或 Alt 加一个按键；Backspace 清空。" Margin="0,0,0,16" />
+    <Button x:Name="ApplyHotkeysButton" Style="{StaticResource KeyButton}" Content="保存快捷键" HorizontalAlignment="Left" Click="OnSaveHotkeys" />
+   </StackPanel>
+   <!-- 关于：版本号、开源地址和许可。地址都在 AppInfo，用浏览器打开。 -->
+   <StackPanel x:Name="AboutPage" Visibility="Hidden">
+    <DockPanel Margin="0,0,0,18">
+     <Image x:Name="AppIcon" Width="48" Height="48" Margin="0,0,14,0" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
+     <StackPanel VerticalAlignment="Center">
+      <StackPanel Orientation="Horizontal">
+       <TextBlock x:Name="AppName" Style="{StaticResource AboutName}" />
+       <TextBlock x:Name="AppVersion" Style="{StaticResource DialogValue}" Margin="8,3,0,0" />
+      </StackPanel>
+      <TextBlock x:Name="AppTagline" Style="{StaticResource DialogHint}" Margin="0,4,0,0" />
+     </StackPanel>
+    </DockPanel>
+    <WrapPanel Margin="0,0,0,6">
+     <Button x:Name="GuideButton" Style="{StaticResource KeyButton}" Margin="0,0,8,8" Click="OnOpenLink">
+      <StackPanel Orientation="Horizontal">
+       <local:NoteIcon Symbol="BookOpen20" />
+       <TextBlock Text="使用说明" Margin="6,0,0,0" VerticalAlignment="Center" />
+      </StackPanel>
+     </Button>
+     <Button x:Name="RepositoryButton" Style="{StaticResource KeyButton}" Margin="0,0,8,8" Click="OnOpenLink">
+      <StackPanel Orientation="Horizontal">
+       <local:NoteIcon Symbol="Code20" />
+       <TextBlock Text="开源地址" Margin="6,0,0,0" VerticalAlignment="Center" />
+      </StackPanel>
+     </Button>
+     <Button x:Name="ReleasesButton" Style="{StaticResource KeyButton}" Margin="0,0,0,8" Click="OnOpenLink">
+      <StackPanel Orientation="Horizontal">
+       <local:NoteIcon Symbol="ArrowDownload20" />
+       <TextBlock Text="下载新版" Margin="6,0,0,0" VerticalAlignment="Center" />
+      </StackPanel>
+     </Button>
+    </WrapPanel>
+    <TextBlock x:Name="RepositoryText" Style="{StaticResource DialogHint}" Margin="0,0,0,20" />
+    <TextBlock Text="许可" Margin="0,0,0,6" />
+    <TextBlock Style="{StaticResource DialogHint}" LineHeight="17" Margin="0,0,0,10"
+     Text="桌边记以 MIT 许可开源。随程序附带的 Markdig、AngleSharp、H.NotifyIcon、Fluent UI 图标、思源黑体和 .NET 运行库，按各自的许可使用。" />
+    <Button x:Name="LicenseButton" Style="{StaticResource KeyButton}" HorizontalAlignment="Left" Click="OnShowLicenses">
+     <StackPanel Orientation="Horizontal">
+      <local:NoteIcon Symbol="Certificate20" />
+      <TextBlock Text="查看许可" Margin="6,0,0,0" VerticalAlignment="Center" />
+     </StackPanel>
+    </Button>
+    <TextBlock Style="{StaticResource DialogHint}" Text="感谢 sysdzw/WeNote 带来最初的启发。" Margin="0,20,0,0" />
+   </StackPanel>
+  </Grid>
+  <DockPanel Margin="0,20,0,0">
+   <Button x:Name="DoneButton" DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="完成" Click="OnDone" />
+   <TextBlock x:Name="Status" Style="{StaticResource DialogHint}" VerticalAlignment="Center" Margin="0,0,12,0" />
+  </DockPanel>
+ </StackPanel>
+</local:NoteDialog>
