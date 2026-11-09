@@ -31,22 +31,24 @@ internal static partial class Program
                 "启动显示修正保留原内容和窗口位置");
             var settings = controller.ShowSettings(note);
             Check(settings.DataPath.Text == Path.GetFullPath(directory), "设置直接显示实际数据目录");
-            foreach (var value in new[] { 70.0, 85.0, 100.0 })
+            // 滑块 0–100 按直线换成窗口的 70%–100%：0 最透明但字看得清，100 不透明。
+            Check(settings.OpacitySlider.Minimum == 0 && settings.OpacitySlider.Maximum == 100, "透明度滑块是 0–100");
+            foreach (var (level, shown) in new[] { (0.0, 0.7), (50.0, 0.85), (100.0, 1.0) })
             {
-                settings.OpacitySlider.Value = value;
-                Check(note.Opacity == value / 100 && note.SaveNow() && store.LoadAll().Errors.Count == 0 &&
-                    store.LoadAll().Notes.Single(n => n.Id == latest.Id).Appearance.Opacity == value / 100,
-                    $"不透明度 {value:0}% 可应用、保存并重新读取");
+                settings.OpacitySlider.Value = level;
+                Check(note.Opacity == shown && settings.Opacity == 1 && settings.OpacityLabel.Text == $"{level:0}%" && note.SaveNow() &&
+                    store.LoadAll().Errors.Count == 0 && store.LoadAll().Notes.Single(n => n.Id == latest.Id).Appearance.Opacity == shown,
+                    $"透明度 {level:0}：窗口 {shown:0%}，可应用、保存并重新读取；设置窗口自己不跟着透明");
             }
-            settings.OpacitySlider.Value = 0;
-            Check(settings.OpacitySlider.Value == 70 && note.Opacity == 0.7 && settings.Opacity == 1,
-                "透明度最低调到 70%，便签不会透明到看不见；设置窗口自己不跟着透明");
-            // 0.8.x 能存下 0%：重开设置时滑块停在 70%，和便签实际显示的一样。
-            note.ApplyAppearance(note.Data.Appearance with { Opacity = 0 });
-            settings.Close();
-            settings = controller.ShowSettings(note);
-            Check(note.Opacity == 0.7 && settings.OpacitySlider.Value == 70 && settings.OpacityLabel.Text == "70%",
-                "旧数据里 0% 的便签按 70% 显示，设置里也显示 70%");
+            // 旧数据存的是窗口实际的不透明度：0.8.x 能存下 0%，按最透明的一档显示；0.9 换到滑块上是 67。
+            foreach (var (old, level, shown) in new[] { (0.0, 0.0, 0.7), (0.9, 67.0, 0.9) })
+            {
+                note.ApplyAppearance(note.Data.Appearance with { Opacity = old });
+                settings.Close();
+                settings = controller.ShowSettings(note);
+                Check(note.Opacity == shown && settings.OpacitySlider.Value == level && settings.OpacityLabel.Text == $"{level:0}%",
+                    $"旧数据里 {old:0%} 的便签窗口按 {shown:0%} 显示，设置里显示 {level:0}");
+            }
             settings.OpacitySlider.Value = 100;
             settings.ProgramTab.IsChecked = true;
             CaptureDialog(settings, Path.Combine(root, "settings-data.png"));

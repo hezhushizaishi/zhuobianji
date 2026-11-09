@@ -32,7 +32,19 @@ internal static partial class Program
         FormatConversion();
         ReadingLayout();
         RestyleStored();
+        OpacityScale();
         SourceSyntax();
+    }
+
+    // 设置里的透明度 0–100 按直线换成窗口的 70%–100%；存储里是窗口实际的不透明度。
+    private static void OpacityScale()
+    {
+        Check(NoteTheme.OpacityOf(0) == 0.7 && NoteTheme.OpacityOf(50) == 0.85 && NoteTheme.OpacityOf(100) == 1,
+            "透明度 0、50、100 对应窗口 70%、85%、100%");
+        Check(Enumerable.Range(0, 101).All(level => NoteTheme.OpacityLevel(NoteTheme.OpacityOf(level)) == level),
+            "0–100 每一档换成不透明度再换回来不变");
+        Check(NoteTheme.OpacityLevel(0) == 0 && NoteTheme.OpacityLevel(0.5) == 0 && NoteTheme.OpacityLevel(0.9) == 67 && NoteTheme.OpacityLevel(1) == 100,
+            "旧数据：低于 70% 的算 0，0.9 是 67，1 是 100");
     }
 
     // 「应用到全部便签」里没开窗口的便签：直接改存着的富文本，结果要和开着窗口时在设置里改一样。

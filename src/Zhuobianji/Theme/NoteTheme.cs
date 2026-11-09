@@ -96,10 +96,13 @@ internal sealed record NoteTheme(SolidColorBrush Surface, SolidColorBrush Header
     private static readonly FontFamily Bundled = new(new Uri("pack://application:,,,/Zhuobianji;component/"), "./Assets/Fonts/#Source Han Sans CN");
     internal static FontFamily Font(string name) => name == BundledFont ? Bundled : new FontFamily(name);
 
-    // 透明度是整个窗口一起变（字也变淡），低于 90% 时后面的窗口已经透得很明显，再低就读不了了。
-    // 所以设置里只能调到 70%，滑块的整段行程都用在看得清的范围里；旧数据里更低的（0.8.x 能调到 0%）按 70% 显示。
+    // 透明度是整个窗口一起变（字也变淡），窗口低于 70% 时后面透得太多，字就读不清了。
+    // 所以设置里的 0–100 按直线换成窗口的 70%–100%：0 是最透明的一档（字还看得清），100 不透明，整段行程都用在看得清的范围里。
+    // 存储里是窗口实际的不透明度；旧数据里低于 70% 的（0.8.x 能调到 0%）按 70% 显示。
     internal const double MinOpacity = 0.7;
     internal static double ShownOpacity(NoteAppearance appearance) => Math.Clamp(appearance.Opacity, MinOpacity, 1);
+    internal static double OpacityLevel(double opacity) => Math.Round((Math.Clamp(opacity, MinOpacity, 1) - MinOpacity) / (1 - MinOpacity) * 100);
+    internal static double OpacityOf(double level) => Math.Round(MinOpacity + (1 - MinOpacity) * Math.Clamp(level, 0, 100) / 100, 3);
 
     // 正文排版：行高按字号倍数，段落与列表只留很小的段后距。
     internal const double LineHeightFactor = 1.45;

@@ -53,7 +53,7 @@
       <TextBlock x:Name="OpacityLabel" DockPanel.Dock="Right" Style="{StaticResource DialogValue}" />
       <TextBlock Text="透明度" VerticalAlignment="Center" />
      </DockPanel>
-     <Slider x:Name="OpacitySlider" ToolTip="100% 不透明，最低 70%，字一直看得清。" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
+     <Slider x:Name="OpacitySlider" ToolTip="0 最透明，100 不透明；调到 0 字也看得清。" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
       ValueChanged="OnAppearanceChanged" Margin="0,6,0,16" />
      <StackPanel Orientation="Horizontal">
       <Button x:Name="DefaultsButton" Style="{StaticResource KeyButton}" Content="设为默认外观" ToolTip="之后新建的便签用这套外观" Click="OnSaveDefaults" />

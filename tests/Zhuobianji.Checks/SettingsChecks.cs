@@ -62,16 +62,16 @@ internal static partial class Program
                 allSettings.FontMenu.Items.OfType<System.Windows.Controls.MenuItem>().Single(item => (string)item.Tag == NoteTheme.BundledFont)
                     .RaiseEvent(new RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent));
                 allSettings.SizeSlider.Value = 20;
-                allSettings.OpacitySlider.Value = 95;
+                allSettings.OpacitySlider.Value = 50;
                 Check(allController.Windows[loose.Id].Data.Appearance.FontSize == 17, "平时在设置里改外观只改这一张");
                 allSettings.ApplyAllButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
                 var saved = allStore.LoadAll().Notes.ToDictionary(n => n.Id);
-                Check(saved.Values.All(n => n.Appearance.FontFamily == NoteTheme.BundledFont && n.Appearance.FontSize == 20 && n.Appearance.Opacity == 0.95) &&
+                Check(saved.Values.All(n => n.Appearance.FontFamily == NoteTheme.BundledFont && n.Appearance.FontSize == 20 && n.Appearance.Opacity == 0.85) &&
                     saved[main.Id].Appearance.Palette == "green" && saved[hidden.Id].Appearance.Palette == "pink" &&
                     saved[collected.Id].Appearance.Palette == "yellow" && saved[loose.Id].Appearance.Palette == "mist" && allSettings.Status.Text == "已应用到全部便签",
                     "应用到全部便签：开着的、隐藏的、收着的都换成这张的字体、字号、透明度并存上，配色各自不变");
                 var looseWindow = allController.Windows[loose.Id];
-                Check(looseWindow.Opacity == 0.95 && looseWindow.Editor.Rich.Document.FontSize == 20 &&
+                Check(looseWindow.Opacity == 0.85 && looseWindow.Editor.Rich.Document.FontSize == 20 &&
                     looseWindow.Editor.Rich.Document.FontFamily == NoteTheme.Font(NoteTheme.BundledFont) &&
                     allController.WindowOf(allController.Book.Find(hidden.Id)) is null && allController.WindowOf(allController.Book.Find(collected.Id)) is null,
                     "开着的便签马上变，没开窗口的便签不为它建窗口");
@@ -94,6 +94,7 @@ internal static partial class Program
             controller.Start();
             var note = controller.Windows.Values.Single();
             note.Editor.TextContent = "设置调整前的文字与格式";
+            note.ChangeAppearance(note.Data.Appearance with { Opacity = 0.95 });
             note.SaveNow();
             var settings = controller.ShowSettings(note);
             await Task.Delay(100);
@@ -104,7 +105,9 @@ internal static partial class Program
                 "设置窗口在所属便签旁边打开，不盖住便签");
             settings.PaletteItems[2].IsChecked = true;
             settings.SizeSlider.Value = 20;
-            settings.OpacitySlider.Value = 85;
+            Check(note.Data.Appearance.Palette == "yellow" && note.Data.Appearance.Opacity == 0.95 && settings.OpacitySlider.Value == 83,
+                "换配色、字号不动透明度：存着的 0.95 照原样留着（滑块上是 83），不会被取整");
+            settings.OpacitySlider.Value = 50;
             settings.DarkMode.IsChecked = true;
             Check(note.Data.Appearance.Palette == "yellow" && note.Data.Appearance.FontSize == 20 && note.Data.Appearance.Opacity == 0.85 && NoteTheme.DarkMode &&
                 note.Resources["Surface"] == NoteTheme.For("yellow", true).Surface &&

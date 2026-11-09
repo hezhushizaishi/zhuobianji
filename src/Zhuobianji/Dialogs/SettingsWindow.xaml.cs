@@ -18,6 +18,8 @@ internal partial class SettingsWindow : NoteDialog
     private bool initializing = true;
     private bool hotkeysDirty;
     private string font;
+    // 窗口实际的不透明度。只在拖滑块时按 0–100 换算，换配色、字号时照原值写回，旧数据里的 0.95 不会被取整成 0.949。
+    private double opacity;
     private readonly Dictionary<TextBox, HotkeyBinding> hotkeys = [];
     internal NoteWindow? TargetNote { get; }
     // 「关于」页的三个地址用它打开；检查里换成记录地址，不真开浏览器。
@@ -54,8 +56,8 @@ internal partial class SettingsWindow : NoteDialog
             FontMenu.Items.Add(item);
         }
         SizeSlider.Value = appearance.FontSize;
-        OpacitySlider.Minimum = NoteTheme.MinOpacity * 100;
-        OpacitySlider.Value = NoteTheme.ShownOpacity(appearance) * 100;
+        opacity = appearance.Opacity;
+        OpacitySlider.Value = NoteTheme.OpacityLevel(appearance.Opacity);
         if (controller.TryReadStartup(out var enabled, out var error)) StartupSwitch.IsChecked = enabled;
         else { StartupSwitch.IsEnabled = false; Status.Text = error; }
         AppIcon.Source = LargeIcon();
@@ -124,7 +126,8 @@ internal partial class SettingsWindow : NoteDialog
     private void OnAppearanceChanged(object sender, RoutedEventArgs e)
     {
         if (initializing || TargetNote is null || PaletteItems.FirstOrDefault(item => item.IsChecked == true) is not { } palette) return;
-        var appearance = new NoteAppearance { Palette = (string)palette.Tag, FontFamily = font, FontSize = SizeSlider.Value, Opacity = OpacitySlider.Value / 100 };
+        if (sender == OpacitySlider) opacity = NoteTheme.OpacityOf(OpacitySlider.Value);
+        var appearance = new NoteAppearance { Palette = (string)palette.Tag, FontFamily = font, FontSize = SizeSlider.Value, Opacity = opacity };
         TargetNote.ChangeAppearance(appearance);
         SetAppearance(appearance);
         UpdateLabels();
