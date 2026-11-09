@@ -170,10 +170,43 @@ internal static partial class Program
             Check(ReferenceEquals(controller.ShowSettings(note), settings) && ReferenceEquals(settings.Licenses, licenses), "许可窗口跟着设置窗口，重复打开设置不新开");
             licenses.Close();
             Check(settings.Licenses is null, "关掉许可窗口后设置窗口照常");
-            settings.Close();
+            settings.DoneButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             var reopened = controller.ShowSettings(note);
-            Check(reopened.SizeSlider.Value == 20 && reopened.DarkMode.IsChecked == true && reopened.FontLabel.Text == NoteTheme.BundledFont && reopened.StartupSwitch.IsChecked == false,
-                "重新打开设置恢复外观与实际自启状态");
+            Check(!settings.IsVisible && reopened.SizeSlider.Value == 20 && reopened.DarkMode.IsChecked == true && reopened.FontLabel.Text == NoteTheme.BundledFont &&
+                reopened.StartupSwitch.IsChecked == false, "点「完成」保存：重新打开设置是刚才调好的外观、深浅色和实际自启状态");
+            // 没点「完成」就关掉（取消、×、Esc）：这次打开以来的改动都退回去，便签文件和设置文件里也是原来的。
+            var keptAppearance = note.Data.Appearance;
+            var keptWarnings = controller.Preferences.ShowFormatWarnings;
+            reopened.PaletteItems[4].IsChecked = true;
+            reopened.SizeSlider.Value = 26;
+            reopened.OpacitySlider.Value = 0;
+            reopened.LightMode.IsChecked = true;
+            reopened.StartupSwitch.IsChecked = true;
+            reopened.FormatWarningsSwitch.IsChecked = !keptWarnings;
+            note.SaveNow();
+            Check(note.Data.Appearance.Palette == "pink" && note.Data.Appearance.FontSize == 26 && note.Opacity == 0.7 && !NoteTheme.DarkMode && startup.IsEnabled &&
+                controller.Preferences.ShowFormatWarnings != keptWarnings, "调的时候便签和程序马上跟着变");
+            reopened.CancelButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Check(!reopened.IsVisible && note.Data.Appearance == keptAppearance && !note.IsDirty && store.LoadAll().Notes.Single().Appearance == keptAppearance &&
+                note.Editor.Rich.Document.FontSize == 20 && note.Opacity == NoteTheme.ShownOpacity(keptAppearance) &&
+                controller.ThemeMode == NoteThemeMode.Dark && NoteTheme.DarkMode && store.LoadPreferences().ThemeMode == NoteThemeMode.Dark && !startup.IsEnabled &&
+                controller.Preferences.ShowFormatWarnings == keptWarnings && store.LoadPreferences().ShowFormatWarnings == keptWarnings,
+                "点「取消」：配色、字号、透明度、深浅色、自启、格式提示都退回原样，文件里也是原来的");
+            reopened = controller.ShowSettings(note);
+            reopened.SizeSlider.Value = 28;
+            reopened.Close();
+            reopened = controller.ShowSettings(note);
+            Check(note.Data.Appearance == keptAppearance && reopened.SizeSlider.Value == 20 && reopened.OpacitySlider.Value == NoteTheme.OpacityLevel(keptAppearance.Opacity),
+                "点 ×（或 Esc）关掉也一样：重新打开是原来的数值，不是没保存的");
+            reopened.SizeSlider.Value = 22;
+            reopened.DefaultsButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            reopened.Close();
+            reopened = controller.ShowSettings(note);
+            Check(note.Data.Appearance.FontSize == 22 && store.LoadPreferences().Appearance.FontSize == 22 && reopened.SizeSlider.Value == 22,
+                "「设为默认外观」本身就是保存：点过以后关窗不退回");
+            reopened.SizeSlider.Value = 20;
+            reopened.DoneButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            reopened = controller.ShowSettings(note);
             // 只改字号：正文里单独设了字号的字按比例跟着变，而且存进正文（换个编辑器读出来还是新字号）。
             note.Editor.Rich.Document.Blocks.Add(new System.Windows.Documents.Paragraph(new System.Windows.Documents.Run("单独放大的字") { FontSize = 40 }));
             note.MarkDirty();

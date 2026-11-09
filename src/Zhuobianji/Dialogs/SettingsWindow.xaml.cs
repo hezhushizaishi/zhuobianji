@@ -20,6 +20,17 @@ internal partial class SettingsWindow : NoteDialog
     private string font;
     // 窗口实际的不透明度。只在拖滑块时按 0–100 换算，换配色、字号时照原值写回，旧数据里的 0.95 不会被取整成 0.949。
     private double opacity;
+    // 这里的改动马上能看到，点「完成」才算数；×、Esc、「取消」，或者别处把窗口关掉（换一张便签开设置、退出程序），
+    // 都把这次打开以来的改动退回去。本身就是保存的按钮（设为默认外观、应用到全部便签、保存快捷键）点了就算数，不退。
+    // 只退这个窗口自己改的：关窗时那一项已经被别处改了（比如托盘开关自启），以别处的为准。
+    private bool committed;
+    private NoteAppearance? keptAppearance, setAppearance;
+    private NoteThemeMode keptTheme;
+    private NoteThemeMode? setTheme;
+    private bool keptStartup, keptWarnings;
+    private bool? setStartup, setWarnings;
+    // 退出程序时由控制器关掉，这时退回失败不弹框。
+    internal bool QuietRevert { get; set; }
     private readonly Dictionary<TextBox, HotkeyBinding> hotkeys = [];
     internal NoteWindow? TargetNote { get; }
     // 「关于」页的三个地址用它打开；检查里换成记录地址，不真开浏览器。
@@ -60,6 +71,10 @@ internal partial class SettingsWindow : NoteDialog
         OpacitySlider.Value = NoteTheme.OpacityLevel(appearance.Opacity);
         if (controller.TryReadStartup(out var enabled, out var error)) StartupSwitch.IsChecked = enabled;
         else { StartupSwitch.IsEnabled = false; Status.Text = error; }
+        keptAppearance = note?.Data.Appearance;
+        keptTheme = controller.ThemeMode;
+        keptStartup = enabled;
+        keptWarnings = controller.Preferences.ShowFormatWarnings;
         AppIcon.Source = LargeIcon();
         AppName.Text = AppInfo.Name;
         AppVersion.Text = AppInfo.Version;
@@ -68,8 +83,35 @@ internal partial class SettingsWindow : NoteDialog
         AppearanceTab.IsChecked = true;
         UpdateLabels();
         initializing = false;
-        Closed += (_, _) => controller.ResumeHotkeys(out _);
+        Closed += (_, _) =>
+        {
+            if (!committed) Revert();
+            controller.ResumeHotkeys(out _);
+        };
     }
+
+    private void Revert()
+    {
+        // 便签已经删了（删除时会关掉它的设置窗口）就不用退外观。退外观存不上时，便签底部会显示保存失败。
+        if (TargetNote is { } note && setAppearance is { } shown && shown != keptAppearance && note.Data.Appearance == shown &&
+            controller.Book.Find(note.Data.Id) is not null)
+        {
+            note.ChangeAppearance(keptAppearance!);
+            note.SaveNow();
+        }
+        var errors = new List<string>();
+        if (setTheme is { } mode && mode != keptTheme && controller.ThemeMode == mode && !controller.TrySetThemeMode(keptTheme, out var themeError))
+            errors.Add(themeError!);
+        if (setStartup is { } on && on != keptStartup && controller.TryReadStartup(out var now, out _) && now == on &&
+            !controller.TrySetStartup(keptStartup, out var startupError))
+            errors.Add(startupError!);
+        if (setWarnings is { } show && show != keptWarnings && controller.Preferences.ShowFormatWarnings == show &&
+            !controller.TrySetFormatWarnings(keptWarnings, out var warningsError))
+            errors.Add(warningsError!);
+        if (errors.Count > 0 && !QuietRevert) Dialogs.Show("没点“完成”，想把设置退回原样，但没成功：\n\n" + string.Join("\n", errors), "设置");
+    }
+
+    private void OnCancel(object sender, RoutedEventArgs e) => Close();
 
     internal RadioButton[] PaletteItems => PalettePanel.Children.OfType<RadioButton>().ToArray();
 
@@ -129,6 +171,7 @@ internal partial class SettingsWindow : NoteDialog
         if (sender == OpacitySlider) opacity = NoteTheme.OpacityOf(OpacitySlider.Value);
         var appearance = new NoteAppearance { Palette = (string)palette.Tag, FontFamily = font, FontSize = SizeSlider.Value, Opacity = opacity };
         TargetNote.ChangeAppearance(appearance);
+        setAppearance = appearance;
         SetAppearance(appearance);
         UpdateLabels();
         Status.Text = "";
@@ -145,7 +188,7 @@ internal partial class SettingsWindow : NoteDialog
     {
         if (initializing) return;
         var mode = DarkMode.IsChecked == true ? NoteThemeMode.Dark : SystemMode.IsChecked == true ? NoteThemeMode.System : NoteThemeMode.Light;
-        if (controller.TrySetThemeMode(mode, out var error)) { Status.Text = ""; return; }
+        if (controller.TrySetThemeMode(mode, out var error)) { setTheme = mode; Status.Text = ""; return; }
         initializing = true;
         ThemeButton(controller.ThemeMode).IsChecked = true;
         initializing = false;
@@ -160,21 +203,31 @@ internal partial class SettingsWindow : NoteDialog
         Licenses?.SetAppearance(appearance);
     }
 
+    // 这两个按钮本身就是保存：点了以后，这张便签现在的外观也算数，之后点 × 只退回点按钮之后的改动。
     private void OnSaveDefaults(object sender, RoutedEventArgs e)
     {
-        if (TargetNote is not null && controller.SaveDefaults(TargetNote.Data.Appearance)) Status.Text = "已设为默认";
+        if (TargetNote is not null && controller.SaveDefaults(TargetNote.Data.Appearance)) { KeepAppearance(); Status.Text = "已设为默认"; }
     }
 
     private void OnApplyToAll(object sender, RoutedEventArgs e)
     {
-        if (TargetNote is not null && controller.ApplyAppearanceToAll(TargetNote)) Status.Text = "已应用到全部便签";
+        if (TargetNote is not null && controller.ApplyAppearanceToAll(TargetNote)) { KeepAppearance(); Status.Text = "已应用到全部便签"; }
+    }
+
+    private void KeepAppearance()
+    {
+        keptAppearance = TargetNote?.Data.Appearance;
+        setAppearance = null;
     }
 
     private void OnStartupChanged(object sender, RoutedEventArgs e)
     {
         if (initializing) return;
         if (controller.TrySetStartup(StartupSwitch.IsChecked == true, out var error))
-            Status.Text = StartupSwitch.IsChecked == true ? "自启已开" : "自启已关";
+        {
+            setStartup = StartupSwitch.IsChecked == true;
+            Status.Text = "";
+        }
         else
         {
             initializing = true;
@@ -187,7 +240,7 @@ internal partial class SettingsWindow : NoteDialog
     private void OnFormatWarningsChanged(object sender, RoutedEventArgs e)
     {
         if (initializing) return;
-        if (controller.TrySetFormatWarnings(FormatWarningsSwitch.IsChecked == true, out var error)) Status.Text = "";
+        if (controller.TrySetFormatWarnings(FormatWarningsSwitch.IsChecked == true, out var error)) { setWarnings = FormatWarningsSwitch.IsChecked == true; Status.Text = ""; }
         else
         {
             initializing = true;
@@ -264,6 +317,7 @@ internal partial class SettingsWindow : NoteDialog
     {
         if (hotkeysDirty && !SaveHotkeys()) return;
         if (TargetNote is not null && !TargetNote.SaveNow()) { Status.Text = TargetNote.SaveError; return; }
+        committed = true;
         Close();
     }
 }

@@ -309,7 +309,8 @@ internal sealed partial class NoteController : IDisposable
         hotkeys?.Dispose();
         hotkeys = null;
         tray?.Dispose();
-        settings?.Close();
+        // 设置窗口开着就退出：没点「完成」的改动照样退回去（便签窗口这时还没关，存得上），失败也不弹框挡住退出。
+        if (settings is not null) { settings.QuietRevert = true; settings.Close(); }
         foreach (var window in Windows.Values.ToArray()) window.ClosePermanently();
         Windows.Clear();
         store.Dispose();
