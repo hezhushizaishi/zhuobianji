@@ -74,8 +74,6 @@
   </Setter>
  </Style>
 
- <Style x:Key="ToolToggle" TargetType="ToggleButton" BasedOn="{StaticResource ToolButton}" />
-
  <!-- 图标按钮：28×28，平时淡色，悬停变实。 -->
  <Style x:Key="IconButton" TargetType="ButtonBase" BasedOn="{StaticResource ToolButton}">
   <Setter Property="Width" Value="28" />

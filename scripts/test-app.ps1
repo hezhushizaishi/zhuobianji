@@ -25,6 +25,8 @@ foreach ($name in $selected) {
 
 $checkPath = Join-Path $projectRoot ('.local\checks\app-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
 New-Item -ItemType Directory -Path $checkPath | Out-Null
+# 检查记录只留最近 10 次（含这一次），更早的删掉。
+Get-ChildItem -LiteralPath (Split-Path -Parent $checkPath) -Directory -Filter 'app-*' | Sort-Object Name -Descending | Select-Object -Skip 10 | Remove-Item -Recurse -Force
 Write-Output ('检查目录：' + $checkPath)
 foreach ($name in $selected) {
     $groupPath = Join-Path $checkPath $name
