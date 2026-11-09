@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>Zhuobianji</AssemblyName>
     <!-- 版本号只写这一处：「关于」页、托盘、exe 属性都从这里来；README 顶部和使用说明开头要跟着改（build-app.ps1 会核对）。 -->
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>桌边记</Product>
     <AssemblyTitle>桌边记</AssemblyTitle>

@@ -11,7 +11,7 @@
 
 <a href="https://github.com/hezhushizaishi/zhuobianji/releases/latest/download/Zhuobianji.exe"><img src="docs/images/download.svg" alt="下载桌边记（Zhuobianji.exe）" height="60"></a>
 
-版本 1.0.0 · [使用说明](docs/使用说明.md) · [版本记录](https://github.com/hezhushizaishi/zhuobianji/releases) · [English](#english)
+版本 1.0.1 · [使用说明](docs/使用说明.md) · [版本记录](https://github.com/hezhushizaishi/zhuobianji/releases) · [English](#english)
 
 <br>
 
@@ -38,7 +38,7 @@
 <td width="33%" valign="top">
 
 **🔗 链接放手边**<br>
-粘贴网址、拖进文件都会变成链接，Ctrl+单击就打开。
+粘贴网址就成了链接，富文本里还能拖进文件；Ctrl+单击打开。
 
 </td>
 </tr>
@@ -80,7 +80,7 @@
 
 ### 链接放在正文里
 
-粘贴带链接的文字，网址显示成域名和路径，标题照样保留；从资源管理器拖进来的文件也会变成链接。光标停在链接上出现卡片，Ctrl+单击直接打开。
+粘贴带链接的文字，网址显示成域名和路径，标题照样保留；在富文本便签里，从资源管理器复制或拖进来的文件也会变成链接。光标停在链接上出现卡片，Ctrl+单击直接打开。
 
 <img src="docs/images/links.png" alt="富文本和 Markdown 便签里的链接" width="100%">
 
@@ -117,9 +117,11 @@
 
 ## 小而轻
 
+一台普通的 Windows 10 电脑上，10 张示例便签实测：
+
 | 约 0.75 秒 | 约 63 MB | 400 多项 |
 | :---: | :---: | :---: |
-| 双击到便签出现 | 常驻内存（10 张便签） | 功能检查，每次改完都跑一遍 |
+| 双击到便签出现（再次启动） | 专用内存 | 功能检查，开真窗口点按钮 |
 
 程序 145 MB，因为里面带着 .NET 运行库和思源黑体，下载后不用再装别的。便签用软件画，不占显卡；收着的便签点开时才建窗口。
 
@@ -135,6 +137,6 @@
 
 ## English
 
-**Zhuobianji** (桌边记, “notes by the desk”) is a small sticky-notes app for Windows 10/11. Write in rich text, Markdown or plain text; when notes pile up, collect them into one main note as tabs along its left edge and pull one out when you need it.
+**Zhuobianji** (桌边记, “notes by the desk”) is a small sticky-notes app for Windows 10/11 (x64). Write in rich text, Markdown or plain text; when notes pile up, collect them into one main note as tabs along its left edge and pull one out when you need it.
 
 Everything stays in a `Data` folder next to the program: no install, no account, no sync. The interface is Chinese only. [Download Zhuobianji.exe](https://github.com/hezhushizaishi/zhuobianji/releases/latest/download/Zhuobianji.exe) · MIT License.
