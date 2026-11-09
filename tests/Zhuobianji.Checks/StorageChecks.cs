@@ -53,7 +53,7 @@ internal static partial class Program
             File.WriteAllText(brokenPath, "不是 JSON");
             loaded = store.LoadAll();
             Check(loaded.Notes.Count == 2 && loaded.Errors.Count == 1 && File.ReadAllText(brokenPath) == "不是 JSON", "损坏记录报告错误且原文不被改写");
-            // 手改成带连字符的文件名（Codex 复审）：读进来的话保存会写到另一个文件，同一张变成两份。所以不读，原文件留着，提示怎么改名。
+            // 手改成带连字符的文件名：读进来的话保存会写到另一个文件，同一张变成两份。所以不读，原文件留着，提示怎么改名。
             using (var names = new NoteStore(Path.Combine(root, "storage-names")))
             {
                 var renamed = new NoteData { Text = "手改了文件名" };

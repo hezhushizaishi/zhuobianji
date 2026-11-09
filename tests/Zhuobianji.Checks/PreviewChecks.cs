@@ -56,7 +56,7 @@ internal static partial class Program
             main.Editor.TextContent = "主便签\n左边是收起来的便签。";
             controller.SetMainNote(main);
             var palettes = new[] { "green", "cream", "mist", "yellow", "pink", "neutral" };
-            var titles = new[] { "模型使用记录", "节点连接", "服务器", "重构原则", "设计提纲", "Solve", "代理设置", "周末计划", "", "读书摘记", "", "常用入口" };
+            var titles = new[] { "会议记录", "旅行清单", "购物清单", "学习笔记", "设计提纲", "Ideas", "待回复", "周末计划", "", "读书摘记", "", "常用入口" };
             for (var index = 0; index < titles.Length; index++)
             {
                 var child = controller.CreateNote();

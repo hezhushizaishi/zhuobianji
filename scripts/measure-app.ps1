@@ -93,7 +93,7 @@ public static class ZhuobianjiMeasure
 }
 '@
 
-# 假便签照站长的实际数据：大多富文本，少量 Markdown 和纯文本；1 张主便签显示，七成收纳，其余隐藏。固定种子，每次一样。
+# 假便签按常见用法：大多富文本，少量 Markdown 和纯文本；1 张主便签显示，七成收纳，其余隐藏。固定种子，每次一样。
 $sentences = @(
     '今天下午三点和设计组过一遍首页改版的稿子。', '记得把上周的报销单交给财务，发票在左边抽屉里。',
     '接口文档已经更新，新的分页参数从第 0 页开始。', '周末去超市：牛奶、鸡蛋、面包、洗衣液。',
@@ -187,7 +187,7 @@ function New-NoteSet([string]$path, [int]$count) {
         Appearance = [ordered]@{ Palette = 'mist'; Dark = $false; FontFamily = 'Microsoft YaHei UI'; FontSize = 17; Opacity = 1 }
         Hotkeys = [ordered]@{ NewNote = [ordered]@{ Modifiers = 0; Key = 0 }; ToggleNotes = [ordered]@{ Modifiers = 0; Key = 0 } }
         ShowFormatWarnings = $true
-        # 写好深浅色模式，测的是平常启动；0.8.x 数据第一次启动还要多存一次设置（重构二第 3 块起）。
+        # 写好深浅色模式，测的是平常启动；0.8.x 数据第一次启动还要多存一次设置（1.0.0 起）。
         ThemeMode = 'Light'
     }
     [IO.File]::WriteAllText((Join-Path $path 'settings.json'), (ConvertTo-Json $settings -Depth 5), $utf8)

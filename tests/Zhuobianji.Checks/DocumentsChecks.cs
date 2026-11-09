@@ -120,7 +120,7 @@ internal static partial class Program
         watch.Stop();
         Console.WriteLine($"  {big.Length / 1000} 千字的 Markdown 找语法 {watch.Elapsed.TotalMilliseconds:0.0} ms，{found.Count} 段");
         Check(found.Count == 600 * 10, "源码变淡：大便签（约 5 万字）每处语法都找到");
-        // 大表格（Codex 复审的例子）：每根竖线都要知道在不在行内代码里，按字查，不再每根竖线扫一遍全文的代码。
+        // 大表格：每根竖线都要知道在不在行内代码里，按字查，不再每根竖线扫一遍全文的代码。
         var table = "| a | b |\n|---|---|\n" + string.Concat(Enumerable.Repeat("| `x` | `y` |\n", 8000));
         MarkdownSyntax.Find(table);
         watch.Restart();
